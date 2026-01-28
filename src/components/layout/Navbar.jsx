@@ -1,12 +1,45 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, ShoppingCart, User, Heart, Menu, X } from 'lucide-react';
+import { Search, ShoppingCart, User, Heart, Menu, X, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SearchOverlay from '../search/SearchOverlay';
+import { useCart } from '../../context/CartContext';
 
 const Navbar = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const [user, setUser] = useState(null);
+    const { cartCount } = useCart();
+
+    useEffect(() => {
+        // Check local storage for user data
+        const checkUser = () => {
+            try {
+                const storedUser = localStorage.getItem('tronix_user');
+                if (storedUser) {
+                    setUser(JSON.parse(storedUser));
+                } else {
+                    // Fallback for old key/format compatibility
+                    const oldUser = localStorage.getItem('user');
+                    if (oldUser) setUser(JSON.parse(oldUser));
+                }
+            } catch (e) {
+                console.error("Error parsing user data", e);
+            }
+        };
+
+        checkUser();
+        window.addEventListener('storage', checkUser);
+        return () => window.removeEventListener('storage', checkUser);
+    }, []);
+
+    const handleLogout = () => {
+        localStorage.removeItem('tronix_token');
+        localStorage.removeItem('tronix_user');
+        localStorage.removeItem('user'); // Clean up old key
+        setUser(null);
+        window.location.reload(); // Force refresh to clear state
+    };
 
     return (
         <>
@@ -49,12 +82,36 @@ const Navbar = () => {
                             </Link>
                             <Link to="/cart" className="relative text-gray-300 hover:text-tronix-primary transition-colors">
                                 <ShoppingCart size={20} />
-                                <span className="absolute -top-2 -right-2 bg-tronix-primary text-xs w-4 h-4 rounded-full flex items-center justify-center text-white">0</span>
+                                {cartCount > 0 && (
+                                    <span className="absolute -top-2 -right-2 bg-tronix-primary text-xs w-5 h-5 rounded-full flex items-center justify-center text-white font-bold animate-pulse">
+                                        {cartCount}
+                                    </span>
+                                )}
                             </Link>
-                            <Link to="/login" className="flex items-center gap-2 bg-white/5 hover:bg-white/10 px-4 py-2 rounded-full border border-white/10 transition-all">
-                                <User size={18} className="text-tronix-primary" />
-                                <span className="text-sm">Login</span>
-                            </Link>
+                            {user ? (
+                                <div className="flex items-center gap-2">
+                                    <Link to={user.role === 'admin' ? '/admin' : '/'} className="flex items-center gap-2 bg-white/5 hover:bg-white/10 px-4 py-2 rounded-full border border-white/10 transition-all">
+                                        <User size={18} className="text-tronix-accent" />
+                                        <span className="text-sm">{user.name?.split(' ')[0] || 'User'}</span>
+                                    </Link>
+                                    <button
+                                        onClick={handleLogout}
+                                        className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                                        title="Logout"
+                                    >
+                                        <LogOut size={20} />
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-3">
+                                    <Link to="/login" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">
+                                        Login
+                                    </Link>
+                                    <Link to="/signup" className="flex items-center gap-2 bg-tronix-primary hover:bg-violet-600 px-4 py-2 rounded-full text-white text-sm font-bold transition-all shadow-lg shadow-violet-500/20">
+                                        Sign Up
+                                    </Link>
+                                </div>
+                            )}
                         </div>
 
                         {/* Mobile Menu Button */}
@@ -79,16 +136,49 @@ const Navbar = () => {
                                 <Link to="/" className="block py-3 text-base font-medium text-white border-b border-white/5">Home</Link>
                                 <Link to="/shop" className="block py-3 text-base font-medium text-gray-300 border-b border-white/5">Shop</Link>
                                 <Link to="/categories" className="block py-3 text-base font-medium text-gray-300 border-b border-white/5">Categories</Link>
-                                <div className="pt-4 flex items-center justify-between">
-                                    <Link to="/login" className="flex items-center gap-2 text-tronix-primary">
-                                        <User size={20} /> Login
-                                    </Link>
-                                    <div className="flex gap-4">
-                                        <button onClick={() => { setIsOpen(false); setIsSearchOpen(true); }}><Search size={20} className="text-gray-300" /></button>
-                                        <Heart size={20} className="text-gray-300" />
-                                        <ShoppingCart size={20} className="text-gray-300" />
+                                {user ? (
+                                    <div className="pt-4 flex items-center justify-between border-t border-white/5 mt-2">
+                                        <div className="flex items-center gap-3">
+                                            <Link to={user.role === 'admin' ? '/admin' : '/'} className="flex items-center gap-2 text-tronix-primary font-medium">
+                                                <User size={20} /> {user.name?.split(' ')[0]}
+                                            </Link>
+                                            <button onClick={handleLogout} className="text-gray-400 hover:text-red-500">
+                                                <LogOut size={20} />
+                                            </button>
+                                        </div>
+                                        <div className="flex gap-4">
+                                            <button onClick={() => { setIsOpen(false); setIsSearchOpen(true); }}><Search size={20} className="text-gray-300" /></button>
+                                            <Link to="/wishlist"><Heart size={20} className="text-gray-300" /></Link>
+                                            <Link to="/cart"><ShoppingCart size={20} className="text-gray-300" /></Link>
+                                        </div>
                                     </div>
-                                </div>
+                                ) : (
+                                    <div className="pt-4 space-y-3 border-t border-white/5 mt-2">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex gap-4">
+                                                <button onClick={() => { setIsOpen(false); setIsSearchOpen(true); }}><Search size={20} className="text-gray-300" /></button>
+                                                <Link to="/wishlist"><Heart size={20} className="text-gray-300" /></Link>
+                                                <Link to="/cart"><ShoppingCart size={20} className="text-gray-300" /></Link>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <Link
+                                                to="/login"
+                                                onClick={() => setIsOpen(false)}
+                                                className="text-center py-2 rounded-lg bg-white/5 text-white text-sm font-medium"
+                                            >
+                                                Login
+                                            </Link>
+                                            <Link
+                                                to="/signup"
+                                                onClick={() => setIsOpen(false)}
+                                                className="text-center py-2 rounded-lg bg-tronix-primary text-white text-sm font-bold"
+                                            >
+                                                Sign Up
+                                            </Link>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </motion.div>
                     )}

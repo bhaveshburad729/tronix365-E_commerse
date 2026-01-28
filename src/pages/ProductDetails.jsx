@@ -1,0 +1,221 @@
+import React, { useState, useEffect } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { ShoppingCart, Check, ArrowLeft, Star, ShieldCheck, Truck, Heart } from 'lucide-react';
+import { useCart } from '../context/CartContext';
+import { useWishlist } from '../context/WishlistContext';
+import { motion } from 'framer-motion';
+import { products as mockProducts } from '../data/mockData';
+
+const ProductDetails = () => {
+    const { id } = useParams();
+    const { addToCart } = useCart();
+    const { toggleWishlist, isInWishlist } = useWishlist();
+    const [product, setProduct] = useState(null);
+    const [activeTab, setActiveTab] = useState('specs');
+    const [quantity, setQuantity] = useState(1);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchProduct = async () => {
+            try {
+                // Timeout promise
+                const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Request timed out')), 2000)
+                );
+
+                const fetchPromise = fetch(`http://localhost:8000/products/${id}`);
+                const response = await Promise.race([fetchPromise, timeoutPromise]);
+
+                if (response.ok) {
+                    const data = await response.json();
+                    setProduct(data);
+                } else {
+                    throw new Error('Failed to fetch from backend');
+                }
+            } catch (error) {
+                console.warn('Backend unavailable, falling back to mock data:', error);
+                const found = mockProducts.find(p => p.id === parseInt(id));
+                setProduct(found || null);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchProduct();
+    }, [id]);
+
+    if (loading) {
+        return (
+            <div className="min-h-screen pt-24 text-center text-white">
+                <p>Loading product...</p>
+            </div>
+        );
+    }
+
+    if (!product) {
+        return (
+            <div className="min-h-screen pt-24 text-center text-white">
+                <p>Product not found.</p>
+                <Link to="/shop" className="text-tronix-primary hover:underline mt-4 inline-block">Back to Shop</Link>
+            </div>
+        );
+    }
+
+    const handleAddToCart = () => {
+        addToCart(product, quantity);
+        alert(`Added ${quantity} ${product.title} to cart!`);
+    };
+
+    return (
+        <div className="min-h-screen pt-24 pb-12 px-4 sm:px-6 lg:px-8">
+            <div className="max-w-7xl mx-auto">
+                <Link to="/shop" className="inline-flex items-center text-gray-400 hover:text-white mb-8 transition-colors">
+                    <ArrowLeft size={20} className="mr-2" /> Back to Shop
+                </Link>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                    {/* Image Section */}
+                    <motion.div
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="bg-tronix-card/50 border border-white/5 rounded-2xl p-8 flex items-center justify-center h-[500px]"
+                    >
+                        <img
+                            src={product.image}
+                            alt={product.title}
+                            className="max-h-full max-w-full object-contain drop-shadow-2xl"
+                        />
+                    </motion.div>
+
+                    {/* Product Info */}
+                    <motion.div
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                    >
+                        <div className="mb-2 text-tronix-primary font-medium tracking-wide uppercase text-sm">
+                            {product.category}
+                        </div>
+                        <h1 className="text-3xl md:text-4xl font-display font-bold text-white mb-4">
+                            {product.title}
+                        </h1>
+
+                        <div className="flex items-center gap-4 mb-6">
+                            <div className="flex text-yellow-500">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                    <Star key={star} size={16} fill="currentColor" />
+                                ))}
+                            </div>
+                            <span className="text-gray-400 text-sm">(12 Reviews)</span>
+                            <span className="text-green-400 text-sm flex items-center gap-1">
+                                <Check size={16} /> In Stock
+                            </span>
+                        </div>
+
+                        <div className="text-3xl font-bold text-white mb-8">
+                            ₹{product.price}
+                        </div>
+
+                        <p className="text-gray-300 leading-relaxed mb-8 border-b border-white/10 pb-8">
+                            {product.description}
+                        </p>
+
+                        <div className="flex items-center gap-4 mb-8">
+                            <div className="flex items-center border border-white/10 rounded-lg">
+                                <button
+                                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                                    className="px-4 py-2 text-white hover:bg-white/5 transition-colors"
+                                >
+                                    -
+                                </button>
+                                <span className="px-4 py-2 text-white font-medium border-x border-white/10">
+                                    {quantity}
+                                </span>
+                                <button
+                                    onClick={() => setQuantity(quantity + 1)}
+                                    className="px-4 py-2 text-white hover:bg-white/5 transition-colors"
+                                >
+                                    +
+                                </button>
+                            </div>
+                            <button
+                                onClick={handleAddToCart}
+                                className="flex-1 bg-tronix-primary text-white font-bold py-3 px-6 rounded-lg hover:bg-violet-600 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-violet-500/20"
+                            >
+                                <ShoppingCart size={20} /> Add to Cart
+                            </button>
+                            <button
+                                onClick={() => {
+                                    toggleWishlist(product);
+                                    alert(isInWishlist(product.id) ? 'Removed from Wishlist' : 'Added to Wishlist');
+                                }}
+                                className={`p-3 rounded-lg border border-white/10 transition-colors ${isInWishlist(product.id) ? 'bg-red-500/10 border-red-500 text-red-500' : 'bg-white/5 hover:bg-white/10 text-white'}`}
+                            >
+                                <Heart size={24} fill={isInWishlist(product.id) ? "currentColor" : "none"} />
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="flex items-center gap-3 p-4 border border-white/5 rounded-xl bg-white/5">
+                                <Truck className="text-tronix-accent" size={24} />
+                                <div>
+                                    <div className="text-white font-medium text-sm">Fast Delivery</div>
+                                    <div className="text-gray-500 text-xs">2-3 business days</div>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-3 p-4 border border-white/5 rounded-xl bg-white/5">
+                                <ShieldCheck className="text-tronix-accent" size={24} />
+                                <div>
+                                    <div className="text-white font-medium text-sm">Warranty</div>
+                                    <div className="text-gray-500 text-xs">1 Year Standard</div>
+                                </div>
+                            </div>
+                        </div>
+                    </motion.div>
+                </div>
+
+                {/* Spec Tabs */}
+                <div className="mt-20">
+                    <div className="flex items-center gap-8 border-b border-white/10 mb-8">
+                        <button
+                            onClick={() => setActiveTab('specs')}
+                            className={`pb-4 text-lg font-medium transition-colors relative ${activeTab === 'specs' ? 'text-tronix-primary' : 'text-gray-400 hover:text-white'}`}
+                        >
+                            Specifications
+                            {activeTab === 'specs' && (
+                                <motion.div layoutId="underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-tronix-primary" />
+                            )}
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('reviews')}
+                            className={`pb-4 text-lg font-medium transition-colors relative ${activeTab === 'reviews' ? 'text-tronix-primary' : 'text-gray-400 hover:text-white'}`}
+                        >
+                            Reviews
+                            {activeTab === 'reviews' && (
+                                <motion.div layoutId="underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-tronix-primary" />
+                            )}
+                        </button>
+                    </div>
+
+                    <div className="bg-tronix-card/30 rounded-2xl p-8 border border-white/5">
+                        {activeTab === 'specs' ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
+                                {product.specs && Object.entries(product.specs).map(([key, value]) => (
+                                    <div key={key} className="flex items-center justify-between border-b border-white/5 py-3">
+                                        <span className="text-gray-400">{key}</span>
+                                        <span className="text-white font-medium">{value}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="text-center py-12 text-gray-400">
+                                <p>No reviews yet. Be the first to review!</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default ProductDetails;
