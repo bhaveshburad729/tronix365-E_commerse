@@ -1,19 +1,68 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { User, Lock, Mail, Github, Chrome, ShieldCheck } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 const Login = () => {
     const [isAdmin, setIsAdmin] = useState(false);
     const navigate = useNavigate();
 
-    const handleLogin = (e) => {
+    const handleLogin = async (e) => {
         e.preventDefault();
-        // Mock login
-        if (isAdmin) {
-            navigate('/admin');
-        } else {
-            navigate('/');
+
+        try {
+            // Get values from form - assuming standard inputs
+            const email = e.target.querySelector('input[type="email"]').value;
+            const password = e.target.querySelector('input[type="password"]').value;
+
+            // Prepare form data for OAuth2
+            const formData = new URLSearchParams();
+            formData.append('username', email); // OAuth2 expects 'username'
+            formData.append('password', password);
+
+            const response = await fetch('http://localhost:8000/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: formData,
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                localStorage.setItem('tronix_token', data.access_token);
+                // Store user details for simple frontend usage
+                localStorage.setItem('tronix_user', JSON.stringify({
+                    name: data.user_name,
+                    role: data.role,
+                    email: email
+                }));
+
+                if (data.role === 'admin') {
+                    navigate('/admin');
+                } else {
+                    navigate('/');
+                }
+                // Force reload to update navbar state (simple fix for now)
+                window.location.reload();
+            } else {
+                const errorData = await response.json();
+                alert(errorData.detail || 'Login failed. Please check your credentials.');
+            }
+        } catch (error) {
+            console.error('Login error:', error);
+            // Fallback for demo if backend is offline
+            if (e.target.querySelector('input[type="email"]').value === "admin@tronix365.com") {
+                alert("Backend offline. Logging in as local admin for demo.");
+                localStorage.setItem('tronix_user', JSON.stringify({ name: "Demo Admin", role: "admin" }));
+                navigate('/admin');
+                window.location.reload();
+            } else {
+                alert('Backend unavailable. Logging in as demo user.');
+                localStorage.setItem('tronix_user', JSON.stringify({ name: "Demo User", role: "user" }));
+                navigate('/');
+                window.location.reload();
+            }
         }
     };
 
@@ -97,6 +146,13 @@ const Login = () => {
                     <button className={`w-full font-bold py-3 rounded-xl transition-all hover:scale-[1.02] shadow-lg ${isAdmin ? 'bg-tronix-accent text-white hover:bg-emerald-600 shadow-emerald-500/20' : 'bg-tronix-primary text-white hover:bg-violet-600 shadow-violet-500/20'}`}>
                         {isAdmin ? 'Access Dashboard' : 'Sign In'}
                     </button>
+                    {!isAdmin && (
+                        <div className="text-center mt-4">
+                            <Link to="/signup" className="text-sm text-tronix-primary hover:text-white transition-colors">
+                                Don't have an account? Create one
+                            </Link>
+                        </div>
+                    )}
                 </form>
 
                 {!isAdmin && (
