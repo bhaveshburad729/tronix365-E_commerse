@@ -28,7 +28,8 @@ export const CartProvider = ({ children }) => {
                         : item
                 );
             } else {
-                return [...prevItems, { ...product, quantity }];
+                // New items are selected by default
+                return [...prevItems, { ...product, quantity, selected: true }];
             }
         });
     };
@@ -46,22 +47,46 @@ export const CartProvider = ({ children }) => {
         );
     };
 
+    const toggleSelection = (productId) => {
+        setCartItems(prevItems =>
+            prevItems.map(item =>
+                item.id === productId ? { ...item, selected: !item.selected } : item
+            )
+        );
+    };
+
+    const selectAll = (isSelected) => {
+        setCartItems(prevItems =>
+            prevItems.map(item => ({ ...item, selected: isSelected }))
+        );
+    };
+
     const clearCart = () => {
         setCartItems([]);
     };
 
-    const cartTotal = cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+    // Calculate total ONLY for selected items
+    const cartTotal = cartItems
+        .filter(item => item.selected !== false) // Default to true if undefined
+        .reduce((total, item) => total + (item.price * item.quantity), 0);
+
     const cartCount = cartItems.reduce((count, item) => count + item.quantity, 0);
+    const selectedCount = cartItems.filter(item => item.selected !== false).length;
+    const selectedItems = cartItems.filter(item => item.selected !== false);
 
     return (
         <CartContext.Provider value={{
             cartItems,
+            selectedItems,
             addToCart,
             removeFromCart,
             updateQuantity,
+            toggleSelection,
+            selectAll,
             clearCart,
             cartTotal,
-            cartCount
+            cartCount,
+            selectedCount
         }}>
             {children}
         </CartContext.Provider>

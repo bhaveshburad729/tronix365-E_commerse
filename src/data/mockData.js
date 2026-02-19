@@ -6,7 +6,8 @@ export const products = [
         price: 450,
         category: "Development Boards",
         image: "https://images.unsplash.com/photo-1553406830-ef2513450d76?auto=format&fit=crop&q=80&w=1000",
-        specs: { "Microcontroller": "ATmega328P", "Operating Voltage": "5V" }
+        specs: { "Microcontroller": "ATmega328P", "Operating Voltage": "5V" },
+        stock: 45
     },
     {
         id: 2,
@@ -15,7 +16,8 @@ export const products = [
         price: 4500,
         category: "Development Boards",
         image: "https://images.unsplash.com/photo-1555617981-d52f6f55c2d7?auto=format&fit=crop&q=80&w=1000",
-        specs: { "RAM": "4GB LPDDR4", "Processor": "Broadcom BCM2711" }
+        specs: { "RAM": "4GB LPDDR4", "Processor": "Broadcom BCM2711" },
+        stock: 0
     },
     {
         id: 3,
@@ -24,7 +26,8 @@ export const products = [
         price: 80,
         category: "Sensors",
         image: "https://images.unsplash.com/photo-1581092160562-40aa08e78837?auto=format&fit=crop&q=80&w=1000",
-        specs: { "Range": "2cm - 400cm", "Voltage": "5V" }
+        specs: { "Range": "2cm - 400cm", "Voltage": "5V" },
+        stock: 120
     },
     {
         id: 4,
@@ -33,7 +36,8 @@ export const products = [
         price: 350,
         category: "Modules",
         image: "https://images.unsplash.com/photo-1517077304055-6e89abbf09b0?auto=format&fit=crop&q=80&w=1000",
-        specs: { "WiFi": "802.11 b/g/n", "Voltage": "3.3V" }
+        specs: { "WiFi": "802.11 b/g/n", "Voltage": "3.3V" },
+        stock: 15
     },
     {
         id: 5,
@@ -42,7 +46,8 @@ export const products = [
         price: 120,
         category: "Motors",
         image: "https://images.unsplash.com/photo-1580835545068-39609c183063?auto=format&fit=crop&q=80&w=1000",
-        specs: { "Torque": "1.8 kg-cm", "Speed": "0.1 sec/60deg" }
+        specs: { "Torque": "1.8 kg-cm", "Speed": "0.1 sec/60deg" },
+        stock: 60
     },
     {
         id: 6,
@@ -51,7 +56,8 @@ export const products = [
         price: 400,
         category: "Battery",
         image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR61ba7tNlKqgqKyE_wXqgq6lqqKqqKqqKqqA&s", // Placeholder
-        specs: { "Capacity": "1000mAh", "Voltage": "3.7V" }
+        specs: { "Capacity": "1000mAh", "Voltage": "3.7V" },
+        stock: 0
     },
     {
         id: 7,
@@ -60,7 +66,8 @@ export const products = [
         price: 90,
         category: "Sensors",
         image: "https://images.unsplash.com/photo-1581092918056-0c4c3acd90f9?auto=format&fit=crop&q=80&w=1000",
-        specs: { "Temp Range": "0-50°C", "Humidity Range": "20-80%" }
+        specs: { "Temp Range": "0-50°C", "Humidity Range": "20-80%" },
+        stock: 200
     },
     {
         id: 8,
@@ -69,7 +76,8 @@ export const products = [
         price: 250,
         category: "Displays",
         image: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&q=80&w=1000",
-        specs: { "Resolution": "128x64", "Interface": "I2C" }
+        specs: { "Resolution": "128x64", "Interface": "I2C" },
+        stock: 8
     }
 ];
 

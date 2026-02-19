@@ -1,53 +1,16 @@
 import React from 'react';
 import HeroSlider from '../components/home/HeroSlider';
-import CategoryGrid from '../components/home/CategoryGrid';
-import ProductCard from '../components/product/ProductCard';
-import { products } from '../data/mockData';
-import { ArrowRight, Zap } from 'lucide-react';
+import FeaturedProducts from '../components/home/FeaturedProducts';
+import { AboutSection, ContactSection } from '../components/home/InfoSections';
 import { Link } from 'react-router-dom';
 
 const Home = () => {
-    // Select featured products (e.g., first 4)
-    const featuredProducts = products.slice(0, 4);
-
     return (
         <main className="min-h-screen pt-16">
             <HeroSlider />
 
-            <CategoryGrid />
-
-            {/* Featured Products Section */}
-            <section className="py-20 bg-tronix-dark border-t border-white/5 relative">
-                <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150"></div>
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-                    <div className="flex items-center justify-between mb-12">
-                        <div>
-                            <div className="flex items-center gap-2 text-tronix-primary mb-2">
-                                <Zap size={20} />
-                                <span className="font-bold text-sm tracking-wider uppercase">Trending Now</span>
-                            </div>
-                            <h2 className="text-3xl md:text-4xl font-display font-bold text-white">Featured <span className="text-transparent bg-clip-text bg-gradient-to-r from-tronix-primary to-tronix-accent">Products</span></h2>
-                        </div>
-                        <Link to="/shop" className="hidden md:flex items-center gap-2 text-white hover:text-tronix-primary transition-colors font-medium">
-                            View All Products <ArrowRight size={20} />
-                        </Link>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                        {featuredProducts.map(product => (
-                            <div key={product.id} className="h-full">
-                                <ProductCard product={product} />
-                            </div>
-                        ))}
-                    </div>
-
-                    <div className="mt-12 text-center md:hidden">
-                        <Link to="/shop" className="inline-flex items-center gap-2 text-white bg-tronix-card border border-white/10 px-6 py-3 rounded-full hover:bg-tronix-primary transition-colors font-medium">
-                            View All Products <ArrowRight size={20} />
-                        </Link>
-                    </div>
-                </div>
-            </section>
+            {/* Featured Products Section - now a component */}
+            <FeaturedProducts />
 
             {/* Banner / Call to Action */}
             <section className="py-24 relative overflow-hidden">
@@ -72,6 +35,10 @@ const Home = () => {
                     </Link>
                 </div>
             </section>
+
+            {/* Info Sections */}
+            <AboutSection />
+            <ContactSection />
         </main>
     );
 };

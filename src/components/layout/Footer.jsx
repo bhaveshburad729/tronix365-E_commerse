@@ -1,4 +1,4 @@
-import React from 'react';
+import { Link } from 'react-router-dom';
 import { Mail, Phone, MapPin, Facebook, Twitter, Instagram, Linkedin, ShieldCheck, Truck, CreditCard } from 'lucide-react';
 
 const Footer = () => {
@@ -32,10 +32,10 @@ const Footer = () => {
                     <div>
                         <h3 className="text-white font-display font-bold mb-6">Quick Links</h3>
                         <ul className="space-y-3">
-                            <li><a href="#" className="text-tronix-muted hover:text-tronix-primary text-sm transition-colors">About Us</a></li>
-                            <li><a href="#" className="text-tronix-muted hover:text-tronix-primary text-sm transition-colors">Contact</a></li>
-                            <li><a href="#" className="text-tronix-muted hover:text-tronix-primary text-sm transition-colors">Terms Conditions</a></li>
-                            <li><a href="#" className="text-tronix-muted hover:text-tronix-primary text-sm transition-colors">Privacy Policy</a></li>
+                            <li><a href="/#about" className="text-tronix-muted hover:text-tronix-primary text-sm transition-colors">About Us</a></li>
+                            <li><a href="/#contact" className="text-tronix-muted hover:text-tronix-primary text-sm transition-colors">Contact</a></li>
+                            <li><Link to="/terms" className="text-tronix-muted hover:text-tronix-primary text-sm transition-colors">Terms & Conditions</Link></li>
+                            <li><Link to="/privacy" className="text-tronix-muted hover:text-tronix-primary text-sm transition-colors">Privacy Policy</Link></li>
                         </ul>
                     </div>
 

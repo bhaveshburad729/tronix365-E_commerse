@@ -1,4 +1,5 @@
 import React from 'react';
+import toast from 'react-hot-toast';
 import { ShoppingCart, Eye, Heart } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -23,8 +24,17 @@ const ProductCard = ({ product }) => {
                     className="h-full object-contain group-hover:scale-110 transition-transform duration-500"
                 />
 
+                {/* Out of Stock Overlay */}
+                {product.stock === 0 && (
+                    <div className="absolute inset-0 bg-black/70 flex items-center justify-center z-10 backdrop-blur-[1px]">
+                        <span className="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                            Out of Stock
+                        </span>
+                    </div>
+                )}
+
                 {/* Overlay Actions */}
-                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3 backdrop-blur-sm">
+                <div className={`absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3 backdrop-blur-sm ${product.stock === 0 ? 'hidden' : ''}`}>
                     <Link to={`/product/${product.id}`} className="p-2 bg-white text-tronix-dark rounded-full hover:bg-tronix-primary hover:text-white transition-colors">
                         <Eye size={20} />
                     </Link>
@@ -35,7 +45,11 @@ const ProductCard = ({ product }) => {
                         onClick={(e) => {
                             e.preventDefault();
                             toggleWishlist(product);
-                            alert(isWishlisted ? 'Removed from Wishlist' : 'Added to Wishlist');
+                            if (isWishlisted) {
+                                toast.error('Removed from Wishlist');
+                            } else {
+                                toast.success('Added to Wishlist');
+                            }
                         }}
                         className={`p-2 rounded-full transition-colors ${isWishlisted ? 'bg-red-500 text-white' : 'bg-white text-tronix-dark hover:bg-red-500 hover:text-white'}`}
                     >
@@ -53,12 +67,21 @@ const ProductCard = ({ product }) => {
                     </h3>
                 </Link>
                 <div className="mt-auto flex items-center justify-between">
-                    <span className="text-xl font-bold text-white">₹{product.price}</span>
+                    <div className="flex flex-col">
+                        <span className="text-xl font-bold text-white">₹{product.sale_price || product.price}</span>
+                        {product.sale_price && product.price && product.sale_price !== product.price && (
+                            <span className="text-xs text-gray-400 line-through">₹{product.price}</span>
+                        )}
+                    </div>
                     <button
                         onClick={(e) => {
                             e.preventDefault();
                             toggleWishlist(product);
-                            alert(isWishlisted ? 'Removed from Wishlist' : 'Added to Wishlist');
+                            if (isWishlisted) {
+                                toast.error('Removed from Wishlist');
+                            } else {
+                                toast.success('Added to Wishlist');
+                            }
                         }}
                         className={`text-xs transition-colors flex items-center gap-1 ${isWishlisted ? 'text-red-500 hover:text-red-400' : 'text-tronix-muted hover:text-white'}`}
                     >

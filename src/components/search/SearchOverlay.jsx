@@ -1,18 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, X, ArrowRight } from 'lucide-react';
-import { products } from '../../data/mockData';
+import { products as mockProducts } from '../../data/mockData';
 import { Link } from 'react-router-dom';
 
 const SearchOverlay = ({ isOpen, onClose }) => {
     const [query, setQuery] = useState('');
     const [results, setResults] = useState([]);
+    const [allProducts, setAllProducts] = useState([]);
+
+    // Fetch products when opened
+    useEffect(() => {
+        if (isOpen) {
+            fetch('http://localhost:8000/products')
+                .then(res => res.ok ? res.json() : [])
+                .then(data => {
+                    if (data.length > 0) {
+                        setAllProducts(data);
+                    } else {
+                        setAllProducts(mockProducts);
+                    }
+                })
+                .catch(() => setAllProducts(mockProducts));
+        }
+    }, [isOpen]);
 
     useEffect(() => {
         if (query.trim() === '') {
             setResults([]);
         } else {
-            const filtered = products.filter(product =>
+            const filtered = allProducts.filter(product =>
                 product.title.toLowerCase().includes(query.toLowerCase()) ||
                 product.category.toLowerCase().includes(query.toLowerCase())
             );
@@ -24,11 +41,18 @@ const SearchOverlay = ({ isOpen, onClose }) => {
     useEffect(() => {
         if (isOpen) {
             document.body.style.overflow = 'hidden';
-        } else {
-            document.body.style.overflow = 'unset';
+
+            // Handle Escape key
+            const handleEsc = (e) => {
+                if (e.key === 'Escape') onClose();
+            };
+            window.addEventListener('keydown', handleEsc);
+            return () => {
+                document.body.style.overflow = 'unset';
+                window.removeEventListener('keydown', handleEsc);
+            };
         }
-        return () => { document.body.style.overflow = 'unset'; };
-    }, [isOpen]);
+    }, [isOpen, onClose]);
 
     return (
         <AnimatePresence>
@@ -37,9 +61,13 @@ const SearchOverlay = ({ isOpen, onClose }) => {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
+                    onClick={onClose} // Close on backdrop click
                     className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-start justify-center pt-24"
                 >
-                    <div className="w-full max-w-3xl px-4">
+                    <div
+                        className="w-full max-w-3xl px-4"
+                        onClick={(e) => e.stopPropagation()} // Prevent close when clicking content
+                    >
                         {/* Close Button - Correctly Positioned */}
                         <button
                             onClick={onClose}

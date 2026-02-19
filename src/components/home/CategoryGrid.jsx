@@ -31,7 +31,7 @@ const CategoryGrid = () => {
 
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6">
                     {categories.map((cat, index) => (
-                        <Link to={`/category/${cat.name.toLowerCase().replace(' ', '-')}`} key={index}>
+                        <Link to={`/category/${cat.name.toLowerCase().replace(/\s+/g, '-')}`} key={index}>
                             <motion.div
                                 whileHover={{ y: -5 }}
                                 className="glass-card p-6 rounded-2xl flex flex-col items-center justify-center text-center h-full group"

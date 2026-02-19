@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { User, Lock, Mail, Github, Chrome, ShieldCheck } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
+import { API_BASE_URL } from '../api/config';
 
 const Login = () => {
     const [isAdmin, setIsAdmin] = useState(false);
@@ -20,7 +21,7 @@ const Login = () => {
             formData.append('username', email); // OAuth2 expects 'username'
             formData.append('password', password);
 
-            const response = await fetch('http://localhost:8000/login', {
+            const response = await fetch(`${API_BASE_URL}/login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
