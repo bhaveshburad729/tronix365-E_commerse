@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { Package, Users, DollarSign, TrendingUp, Plus, Image as ImageIcon, Search, X, Check } from 'lucide-react';
 import { products as mockProducts } from '../data/mockData';
 
@@ -63,7 +64,7 @@ const AdminDashboard = () => {
         setProducts([...products, product]);
         setIsAddProductOpen(false);
         setNewProduct({ title: '', category: 'Development Boards', price: '', description: '', image: '' });
-        alert('Product added successfully (Local State Only)');
+        toast.success('Product added successfully');
     };
 
     // Calculate Stats
@@ -157,6 +158,7 @@ const AdminDashboard = () => {
                                 <thead className="bg-white/5 text-white uppercase font-medium">
                                     <tr>
                                         <th className="px-6 py-4 rounded-l-lg">Product</th>
+                                        <th className="px-6 py-4">SKV</th>
                                         <th className="px-6 py-4">Category</th>
                                         <th className="px-6 py-4">Price</th>
                                         <th className="px-6 py-4">Stock</th>
@@ -174,9 +176,10 @@ const AdminDashboard = () => {
                                                     <span className="font-medium text-white">{item.title}</span>
                                                 </div>
                                             </td>
+                                            <td className="px-6 py-4 text-gray-300 font-mono text-xs">{item.skv || 'N/A'}</td>
                                             <td className="px-6 py-4">{item.category}</td>
-                                            <td className="px-6 py-4 text-white">₹{item.price}</td>
-                                            <td className="px-6 py-4">150</td> {/* Mock Stock */}
+                                            <td className="px-6 py-4 text-white">₹{item.sale_price || item.price}</td>
+                                            <td className="px-6 py-4">{item.stock}</td>
                                             <td className="px-6 py-4">
                                                 <span className="bg-emerald-500/10 text-emerald-500 px-3 py-1 rounded-full text-xs">In Stock</span>
                                             </td>
@@ -254,20 +257,30 @@ const AdminDashboard = () => {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm text-gray-400 mb-1">Category</label>
-                                    <select
-                                        value={newProduct.category}
-                                        onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
+                                    <label className="block text-sm text-gray-400 mb-1">Stock</label>
+                                    <input
+                                        type="number"
+                                        required
+                                        value={newProduct.stock || ''}
+                                        onChange={(e) => setNewProduct({ ...newProduct, stock: Number(e.target.value) })}
                                         className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-tronix-primary outline-none"
-                                    >
-                                        <option>Development Boards</option>
-                                        <option>Sensors</option>
-                                        <option>Modules</option>
-                                        <option>Motors</option>
-                                        <option>Battery</option>
-                                        <option>Displays</option>
-                                    </select>
+                                    />
                                 </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm text-gray-400 mb-1">Category</label>
+                                <select
+                                    value={newProduct.category}
+                                    onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
+                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-tronix-primary outline-none"
+                                >
+                                    <option>Development Boards</option>
+                                    <option>Sensors</option>
+                                    <option>Modules</option>
+                                    <option>Motors</option>
+                                    <option>Battery</option>
+                                    <option>Displays</option>
+                                </select>
                             </div>
                             <div>
                                 <label className="block text-sm text-gray-400 mb-1">Image URL</label>
@@ -302,9 +315,9 @@ const AdminDashboard = () => {
                             </button>
                         </form>
                     </div>
-                </div>
+                </div >
             )}
-        </div>
+        </div >
     );
 };
 
