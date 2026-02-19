@@ -44,6 +44,8 @@ ENV/
 env.bak/
 venv.bak/
 myenv/
+tronix_env/
+backend/tronix_env/
 
 # Environment Variables
 .env
@@ -72,3 +74,5 @@ ehthumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+backend/tronix365.db.bak
