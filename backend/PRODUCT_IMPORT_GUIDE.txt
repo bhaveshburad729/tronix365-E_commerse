@@ -1,0 +1,61 @@
+Product Data Import Guide
+=========================
+
+1. Image Handling (Direct Images)
+---------------------------------
+You can use images from the internet (URL) or from your local computer.
+
+Option A: Local Images (Recommended)
+1. Gather your images: Collect all your product photos (e.g., arduino.jpg, sensor_01.png).
+2. Place them in the project:
+   - Copy all these images into the folder: src/assets/products/
+   - (Note: You might need to create the 'products' folder inside 'src/assets' if it doesn't exist)
+3. In the CSV:
+   - Just write the filename.
+   - Correct: arduino.jpg
+   - Incorrect: C:/Users/Photo/arduino.jpg
+
+Option B: Internet Images
+1. In the CSV:
+   - Paste the full link.
+   - Example: https://example.com/images/arduino.jpg
+
+
+2. CSV File Format
+------------------
+File Name: products.csv (save as standard CSV comma-separated).
+
+Column Definitions:
+
+- skv (Required): Unique ID for the product (e.g., ARD-001). Used to update existing items.
+- title (Required): Name of the product (e.g., Arduino Uno R3).
+- category (Required): Category name for grouping (e.g., Development Boards).
+- stock (Required): Number of items available (e.g., 50).
+- sale_price (Required): Selling Price that customer pays (e.g., 450).
+- mrp (Optional): Maximum Retail Price shown crossed out (e.g., 650).
+- features (Optional): Bullet points list. Use '|' to separate items.
+  Example: Low Power|5V Logic|USB-C
+- specs (Optional): Technical details. Use '|' to separate items, ':' for value.
+  Example: Voltage:5V|Memory:2KB
+- image (Required): Filename or URL (e.g., arduino.jpg).
+- description (Optional): Paragraph text describing the item.
+
+
+3. Example Rows
+---------------
+
+[Simple Product]
+skv,title,stock,sale_price,image
+SKV-01,Basic LED,100,5,led_red.jpg
+
+[Advanced Product with Features]
+skv,title,stock,sale_price,mrp,features,specs
+RPI-4,Raspberry Pi 4,20,4500,5500,Quad Core CPU|4GB RAM|WiFi,RAM:4GB|CPU:1.5GHz
+
+
+4. How to Run Import
+--------------------
+1. Save your file as 'products.csv' in the 'backend/' folder.
+2. Open terminal in 'backend/' folder.
+3. Run the command:
+   python import_products.py

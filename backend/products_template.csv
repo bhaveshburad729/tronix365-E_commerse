@@ -1,0 +1,3 @@
+skv,title,category,price,mrp,sale_price,stock,description,features,specs,image
+ARD-UNO-R3,Arduino Uno R3 (Example),Development Boards,450,650,450,50,The classic microcontroller board.,ATmega328P Microcontroller|Operating Voltage: 5V|Digital I/O Pins: 14|USB Connection,Microcontroller:ATmega328P|Voltage:5V|Input Voltage:7-12V,arduino_uno.jpg
+RPI-4-4GB,Raspberry Pi 4 (Example),Development Boards,4500,5500,4500,10,Powerful mini-computer.,Quad core Cortex-A72|4GB RAM|4K Dual Display|Gigabit Ethernet,Processor:Broadcom BCM2711|RAM:4GB|WiFi:Dual Band,raspberry_pi_4.jpg
