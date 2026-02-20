@@ -31,8 +31,19 @@ class UserDB(Base):
     role = Column(String, default="user") # 'admin' or 'user'
     is_active = Column(Boolean, default=True)
     is_2fa_enabled = Column(Boolean, default=False)
-    # For a real app, you'd store the 2FA secret here securely
     two_factor_secret = Column(String, nullable=True)
+
+class OrderItemDB(Base):
+    __tablename__ = "order_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id"))
+    product_id = Column(Integer, ForeignKey("products.id"))
+    quantity = Column(Integer)
+    price_at_purchase = Column(Float) # Lock price at time of order
+
+    order = relationship("OrderDB", back_populates="items")
+    product = relationship("ProductDB")
 
 class OrderDB(Base):
     __tablename__ = "orders"
@@ -41,7 +52,9 @@ class OrderDB(Base):
     customer_email = Column(String, index=True)
     total_amount = Column(Float)
     status = Column(String, default="pending")
-    items = Column(JSON) # Store items as JSON for simplicity
+    
+    # Relationship to OrderItemDB
+    items = relationship("OrderItemDB", back_populates="order", cascade="all, delete-orphan")
     
     # Payment & Shipping Details
     txnid = Column(String, unique=True, index=True, nullable=True)
@@ -69,6 +82,19 @@ class ProductBase(BaseModel):
 class ProductCreate(ProductBase):
     pass
 
+class ProductUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    price: Optional[float] = None
+    category: Optional[str] = None
+    image: Optional[str] = None
+    specs: Optional[Dict[str, str]] = None
+    skv: Optional[str] = None
+    mrp: Optional[float] = None
+    sale_price: Optional[float] = None
+    features: Optional[List[str]] = None
+    stock: Optional[int] = None
+
 class Product(ProductBase):
     id: int
     class Config:
@@ -77,6 +103,8 @@ class Product(ProductBase):
 class OrderItem(BaseModel):
     product_id: int
     quantity: int
+    class Config:
+        from_attributes = True
 
 class OrderCreate(BaseModel):
     items: List[OrderItem]

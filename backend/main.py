@@ -1,14 +1,23 @@
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func
 from database import engine, Base, get_db
-from models import Product, ProductDB, Order, OrderCreate, OrderDB, LoginRequest, ReviewDB, ReviewCreate, ReviewResponse
+from models import Product, ProductDB, Order, OrderCreate, OrderDB, OrderItemDB, LoginRequest, ReviewDB, ReviewCreate, ReviewResponse, ProductCreate, ProductUpdate
 import requests
 import hashlib
 import os
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
+from fastapi.staticfiles import StaticFiles
+from fastapi import UploadFile, File
+import shutil
+
+# Ensure 'uploads' directory exists
+UPLOAD_DIR = "uploads"
+if not os.path.exists(UPLOAD_DIR):
+    os.makedirs(UPLOAD_DIR)
 
 # Create tables
 Base.metadata.create_all(bind=engine)
@@ -28,15 +37,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount static files
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 @app.exception_handler(RequestValidationError)
+@app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     print(f"Validation Error: {exc.errors()}")
+    body = exc.body
+    if not isinstance(body, (dict, list, str, int, float, bool, type(None))):
+        body = str(body)
     return JSONResponse(
         status_code=422,
-        content={"detail": exc.errors(), "body": exc.body},
+        content={"detail": exc.errors(), "body": body},
     )
 
 
@@ -50,6 +66,8 @@ async def health_check():
 
 @app.get("/products", response_model=List[Product])
 async def get_products(
+    skip: int = 0,
+    limit: int = 20,
     category: str = None,
     min_price: float = None,
     max_price: float = None,
@@ -84,7 +102,7 @@ async def get_products(
         elif sort_by == "name_asc":
             query = query.order_by(ProductDB.title.asc())
 
-    products = query.all()
+    products = query.offset(skip).limit(limit).all()
     return products
 
 @app.get("/products/{product_id}", response_model=Product)
@@ -93,6 +111,38 @@ async def get_product(product_id: int, db: Session = Depends(get_db)):
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
     return product
+
+@app.post("/products", response_model=Product, status_code=201)
+async def create_product(product: ProductCreate, db: Session = Depends(get_db)):
+    new_product = ProductDB(**product.dict())
+    db.add(new_product)
+    db.commit()
+    db.refresh(new_product)
+    return new_product
+
+@app.put("/products/{product_id}", response_model=Product)
+async def update_product(product_id: int, product: ProductUpdate, db: Session = Depends(get_db)):
+    db_product = db.query(ProductDB).filter(ProductDB.id == product_id).first()
+    if not db_product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    product_data = product.dict(exclude_unset=True)
+    for key, value in product_data.items():
+        setattr(db_product, key, value)
+    
+    db.commit()
+    db.refresh(db_product)
+    return db_product
+
+@app.delete("/products/{product_id}", status_code=204)
+async def delete_product(product_id: int, db: Session = Depends(get_db)):
+    db_product = db.query(ProductDB).filter(ProductDB.id == product_id).first()
+    if not db_product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    db.delete(db_product)
+    db.commit()
+    return None
 
 @app.post("/products/{product_id}/reviews", response_model=ReviewResponse)
 async def create_review(product_id: int, review: ReviewCreate, db: Session = Depends(get_db)):
@@ -120,24 +170,45 @@ async def get_reviews(product_id: int, db: Session = Depends(get_db)):
 
 @app.post("/orders", status_code=201)
 async def create_order(order: OrderCreate, db: Session = Depends(get_db)):
-    # Convert Pydantic items list to JSON-compatible format (list of dicts)
-    items_json = [item.dict() for item in order.items]
-    
+    # Create Order
     new_order = OrderDB(
         customer_email=order.customer_email,
         total_amount=order.total_amount,
-        status="confirmed", # Auto-confirm for demo
-        items=items_json 
+        status="confirmed" # Auto-confirm for demo
     )
+    
+    # Process Items
+    for item in order.items:
+        # Fetch product to get current price
+        product = db.query(ProductDB).filter(ProductDB.id == item.product_id).first()
+        if not product:
+            continue # Skip invalid products or raise error
+            
+        # Determine price (sale price > mrp > 0)
+        price = product.sale_price if product.sale_price else (product.price if product.price else 0.0)
+        
+        # Create Order Item linked to Order
+        order_item = OrderItemDB(
+            product_id=item.product_id,
+            quantity=item.quantity,
+            price_at_purchase=price
+        )
+        new_order.items.append(order_item)
+        
+        # Deduct Stock (Optional but good practice)
+        if product.stock >= item.quantity:
+            product.stock -= item.quantity
+
     db.add(new_order)
     db.commit()
     db.refresh(new_order)
     print(f"Order saved: {new_order.id}")
     return {"message": "Order placed successfully", "order_id": new_order.id, "status": "confirmed"}
 
+
 @app.get("/orders", response_model=List[Order])
-async def get_orders(db: Session = Depends(get_db)):
-    orders = db.query(OrderDB).all()
+async def get_orders(skip: int = 0, limit: int = 20, db: Session = Depends(get_db)):
+    orders = db.query(OrderDB).options(joinedload(OrderDB.items)).offset(skip).limit(limit).all()
     return orders
 
 class ContactMessage(BaseModel):
@@ -253,9 +324,9 @@ async def get_user_profile(current_user: UserDB = Depends(get_current_user)):
     return current_user
 
 @app.get("/orders/user", response_model=List[Order])
-async def get_user_orders(current_user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
+async def get_user_orders(skip: int = 0, limit: int = 20, current_user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
     # Fetch orders based on customer_email matching the logged-in user
-    orders = db.query(OrderDB).filter(OrderDB.customer_email == current_user.email).order_by(OrderDB.id.desc()).all()
+    orders = db.query(OrderDB).filter(OrderDB.customer_email == current_user.email).order_by(OrderDB.id.desc()).offset(skip).limit(limit).all()
     return orders
     
 # Trigger reload for env update
@@ -292,7 +363,13 @@ async def initiate_payment(payment: PaymentInitiate, db: Session = Depends(get_d
         if product.stock < item.quantity:
              raise HTTPException(status_code=400, detail=f"Insufficient stock for {product.title}. Only {product.stock} left.")
         
-        items_for_order.append(item.dict())
+        # Create OrderItemDB instance
+        order_item = OrderItemDB(
+            product_id=item.product_id,
+            quantity=item.quantity,
+            price_at_purchase=product.sale_price if product.sale_price else product.price
+        )
+        items_for_order.append(order_item)
 
     key = os.getenv("PAYU_KEY")
     salt = os.getenv("PAYU_SALT")
@@ -443,4 +520,35 @@ async def payment_callback(
         return RedirectResponse(url=f"{frontend_url}/payment/success?txnid={txnid}", status_code=303)
     else:
         return RedirectResponse(url=f"{frontend_url}/payment/failure?txnid={txnid}", status_code=303)
+
+@app.get("/admin/stats")
+async def get_admin_stats(db: Session = Depends(get_db)):
+    total_orders = db.query(OrderDB).count()
+    total_revenue = db.query(func.sum(OrderDB.total_amount)).scalar() or 0.0
+    total_products = db.query(ProductDB).count()
+    total_users = db.query(UserDB).count()
+    
+    return {
+        "total_revenue": total_revenue,
+        "total_orders": total_orders,
+        "total_products": total_products,
+        "active_users": total_users
+    }
+
+@app.post("/upload")
+async def upload_image(file: UploadFile = File(...)):
+    try:
+        # Create a unique filename
+        file_extension = file.filename.split(".")[-1]
+        unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{os.urandom(4).hex()}.{file_extension}"
+        file_path = os.path.join(UPLOAD_DIR, unique_filename)
+        
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+            
+        # Return full URL
+        backend_url = os.getenv("BACKEND_URL", "http://localhost:8000")
+        return {"url": f"{backend_url}/uploads/{unique_filename}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 

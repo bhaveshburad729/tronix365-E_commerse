@@ -136,12 +136,31 @@ def seed_data():
     ]
 
     try:
+        # Seed Products
         for product in products:
             db_product = ProductDB(**product)
             db.add(db_product)
         
+        # Seed Admin User
+        from auth import get_password_hash
+        from models import UserDB
+        
+        admin_email = "admin@tronix365.com"
+        # Check if exists (though we dropped tables so likely not)
+        if not db.query(UserDB).filter(UserDB.email == admin_email).first():
+            print("Seeding Admin User...")
+            hashed_password = get_password_hash("adminpassword123")
+            admin_user = UserDB(
+                email=admin_email,
+                hashed_password=hashed_password,
+                full_name="System Admin",
+                role="admin",
+                is_active=True
+            )
+            db.add(admin_user)
+
         db.commit()
-        print("Successfully seeded 8 products!")
+        print("Successfully seeded products and admin user!")
     except Exception as e:
         print(f"Error seeding database: {e}")
         db.rollback()
