@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { MapPin, Mail, Phone } from 'lucide-react';
+import client from '../api/client';
 
 const PageLayout = ({ title, children }) => (
     <div className="min-h-screen pt-24 pb-12 px-4 sm:px-6 lg:px-8">
@@ -52,21 +53,12 @@ export const Contact = () => {
         e.preventDefault();
         setLoading(true);
         try {
-            const response = await fetch('http://localhost:8000/contact', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(formData)
-            });
-
-            if (response.ok) {
-                toast.success('Message sent successfully!');
-                setFormData({ name: '', email: '', message: '' });
-            } else {
-                toast.error('Failed to send message.');
-            }
+            await client.post('/contact', formData);
+            toast.success('Message sent successfully!');
+            setFormData({ name: '', email: '', message: '' });
         } catch (error) {
             console.error('Contact error:', error);
-            toast.error('Something went wrong. Please try again.');
+            toast.error('Failed to send message.');
         } finally {
             setLoading(false);
         }

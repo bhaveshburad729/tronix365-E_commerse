@@ -7,6 +7,7 @@ import { useWishlist } from '../context/WishlistContext';
 import { motion } from 'framer-motion';
 import { products as mockProducts } from '../data/mockData';
 import ReviewSection from '../components/product/ReviewSection';
+import client from '../api/client';
 
 const ProductDetails = () => {
     const { id } = useParams();
@@ -21,20 +22,9 @@ const ProductDetails = () => {
     useEffect(() => {
         const fetchProduct = async () => {
             try {
-                // Timeout promise
-                const timeoutPromise = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Request timed out')), 2000)
-                );
-
-                const fetchPromise = fetch(`http://localhost:8000/products/${id}`);
-                const response = await Promise.race([fetchPromise, timeoutPromise]);
-
-                if (response.ok) {
-                    const data = await response.json();
-                    setProduct(data);
-                } else {
-                    throw new Error('Failed to fetch from backend');
-                }
+                // Use axios with 2000ms timeout
+                const response = await client.get(`/products/${id}`, { timeout: 2000 });
+                setProduct(response.data);
             } catch (error) {
                 console.warn('Backend unavailable, falling back to mock data:', error);
                 const found = mockProducts.find(p => p.id === parseInt(id));

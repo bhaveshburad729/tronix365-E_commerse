@@ -5,7 +5,7 @@ import { Filter, X } from 'lucide-react';
 import ProductCard from '../components/product/ProductCard';
 import ProductFilter from '../components/shop/ProductFilter';
 import { categories, products as mockProducts } from '../data/mockData';
-import { API_BASE_URL } from '../api/config';
+import client from '../api/client';
 
 const Shop = () => {
     const { category } = useParams();
@@ -38,83 +38,80 @@ const Shop = () => {
     const [priceRange, setPriceRange] = useState(10000);
     const [sortBy, setSortBy] = useState('');
     const [showInStockOnly, setShowInStockOnly] = useState(false);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [debugInfo, setDebugInfo] = useState('');
 
-    // Mobile Filter Drawer
+    // Pagination State
+    const [page, setPage] = useState(1);
+    const [hasMore, setHasMore] = useState(true);
+    const [loading, setLoading] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const LIMIT = 12;
+
+    const [error, setError] = useState(null);
     const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
 
+    // Initial Load & Filter Change
     useEffect(() => {
-        const fetchProducts = async () => {
-            setLoading(true);
-            setError(null);
-            setDebugInfo(''); // Clear previous debug
-            try {
-                // Build Query String
-                const params = new URLSearchParams();
-                const searchQuery = new URLSearchParams(window.location.search).get('search');
-
-                // ONLY append category if it's NOT 'All'
-                if (selectedCategory !== 'All') {
-                    params.append('category', selectedCategory);
-                }
-
-                if (priceRange < 10000) params.append('max_price', priceRange);
-                if (sortBy) params.append('sort_by', sortBy);
-                if (searchQuery) params.append('search', searchQuery);
-
-                const url = `${API_BASE_URL}/products?${params.toString()}`;
-                console.log("Fetching URL:", url); // Log for console debugging
-
-                const response = await fetch(url);
-
-                if (response.ok) {
-                    let data = await response.json();
-
-                    // Client-side Stock Filter 
-                    if (showInStockOnly) {
-                        data = data.filter(p => p.stock > 0);
-                    }
-
-                    if (data.length === 0) {
-                        setDebugInfo(`API returned 0 items. URL: ${url}`);
-                    }
-
-                    console.log("Fetched Products:", data);
-                    setProducts(data);
-                    setFilteredProducts(data);
-                } else {
-                    const text = await response.text();
-                    setError(`API Error: ${response.status} ${response.statusText}`);
-                    setDebugInfo(`URL: ${url} \n Body: ${text}`);
-                    setProducts([]);
-                    setFilteredProducts([]);
-                }
-            } catch (error) {
-                console.error("Fetch error:", error);
-                setError(`Network Error: ${error.message}`);
-                setDebugInfo(`Config API URL: ${API_BASE_URL}`);
-                setProducts([]);
-                setFilteredProducts([]);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        // Debounce fetching to avoid too many requests while sliding price
-        const timeoutId = setTimeout(fetchProducts, 300);
-        return () => clearTimeout(timeoutId);
-
+        fetchProducts(1, true);
     }, [selectedCategory, priceRange, sortBy, showInStockOnly, window.location.search]);
 
-    if (loading) {
-        return (
-            <div className="min-h-screen pt-24 pb-12 px-4 sm:px-6 lg:px-8 text-center text-white">
-                <p>Loading products...</p>
-            </div>
-        );
-    }
+    const fetchProducts = async (pageToFetch, reset = false) => {
+        if (reset) {
+            setLoading(true);
+            setPage(1);
+            setHasMore(true);
+        } else {
+            setLoadingMore(true);
+        }
+        setError(null);
+
+        try {
+            const params = {
+                skip: (pageToFetch - 1) * LIMIT,
+                limit: LIMIT
+            };
+
+            // Add Filters
+            const searchParams = new URLSearchParams(window.location.search);
+            const searchQuery = searchParams.get('search');
+
+            if (selectedCategory !== 'All') params.category = selectedCategory;
+            if (priceRange < 10000) params.max_price = priceRange;
+            if (sortBy) params.sort_by = sortBy;
+            if (searchQuery) params.search = searchQuery;
+
+            const response = await client.get('/products', { params });
+            let data = response.data;
+
+            // Client-side Stock Filter (Ideally this should be backend too, but keeping for consistency)
+            if (showInStockOnly) {
+                data = data.filter(p => p.stock > 0);
+            }
+
+            if (data.length < LIMIT) {
+                setHasMore(false);
+            }
+
+            if (reset) {
+                setProducts(data);
+                setFilteredProducts(data); // Keeping filteredProducts for compatibility if needed, but distinct mainly for client-side search which we replaced
+            } else {
+                setProducts(prev => [...prev, ...data]);
+                setFilteredProducts(prev => [...prev, ...data]);
+            }
+        } catch (err) {
+            console.error(err);
+            setError("Failed to load products.");
+        } finally {
+            setLoading(false);
+            setLoadingMore(false);
+        }
+    };
+
+    const handleLoadMore = () => {
+        const nextPage = page + 1;
+        setPage(nextPage);
+        fetchProducts(nextPage, false);
+    };
 
     return (
         <div className="min-h-screen pt-24 pb-12 px-4 sm:px-6 lg:px-8">
@@ -154,28 +151,32 @@ const Shop = () => {
 
                     {/* Main Content Area */}
                     <div className="lg:col-span-3">
-                        {/* Debug Info (Hidden) */}
-                        {/* 
-                        <div className="bg-blue-500/20 border border-blue-500 text-blue-200 p-4 rounded-xl mb-6">
-                            <h3 className="font-bold">Debug Info</h3>
-                            <p className="font-mono text-xs whitespace-pre-wrap">{debugInfo}</p>
-                            {error && <p className="text-red-400 font-bold mt-2">{error}</p>}
-                            <button
-                                onClick={() => window.location.reload()}
-                                className="mt-2 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-xs"
-                            >
-                                Reload Page
-                            </button>
-                        </div> 
-                        */}
-
-                        {/* Product Grid */}
-                        {filteredProducts.length > 0 ? (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {filteredProducts.map((product) => (
-                                    <ProductCard key={product.id} product={product} />
-                                ))}
+                        {/* Loading State */}
+                        {loading ? (
+                            <div className="flex justify-center items-center py-20">
+                                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-tronix-primary"></div>
                             </div>
+                        ) : error ? (
+                            <div className="text-center text-red-500 py-10">{error}</div>
+                        ) : filteredProducts.length > 0 ? (
+                            <>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {filteredProducts.map((product) => (
+                                        <ProductCard key={product.id} product={product} />
+                                    ))}
+                                </div>
+                                {hasMore && (
+                                    <div className="mt-12 flex justify-center">
+                                        <button
+                                            onClick={handleLoadMore}
+                                            disabled={loadingMore}
+                                            className="px-8 py-3 bg-white/5 border border-white/10 rounded-full text-white font-semibold hover:bg-white/10 transition-all disabled:opacity-50 flex items-center gap-2"
+                                        >
+                                            {loadingMore ? 'Loading...' : 'Load More'}
+                                        </button>
+                                    </div>
+                                )}
+                            </>
                         ) : (
                             <div className="flex flex-col items-center justify-center py-20 text-gray-500">
                                 <Filter size={48} className="mb-4 opacity-50" />

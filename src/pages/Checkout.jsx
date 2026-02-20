@@ -4,7 +4,7 @@ import { useCart } from '../context/CartContext';
 import { motion } from 'framer-motion';
 import { MapPin, CreditCard, ShieldCheck, Truck, ChevronRight } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
-import { API_BASE_URL } from '../api/config';
+import client from '../api/client';
 
 const Checkout = () => {
     const { selectedItems, cartTotal } = useCart();
@@ -62,30 +62,20 @@ const Checkout = () => {
             const email = address.email || (user ? user.email : "guest@example.com");
 
             // 1. Get PayU params and hash from backend
-            const response = await fetch(`${API_BASE_URL}/payment/initiate`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    amount: totalAmount,
-                    firstname: address.fullName,
-                    email: email,
-                    productinfo: `Order for ${selectedItems.length} items`,
-                    items: selectedItems.map(item => ({ product_id: item.id, quantity: item.quantity })),
-                    phone: address.mobile,
-                    address_line: address.addressLine,
-                    city: address.city,
-                    state: address.state,
-                    pincode: address.pincode
-                })
+            const response = await client.post('/payment/initiate', {
+                amount: totalAmount,
+                firstname: address.fullName,
+                email: email,
+                productinfo: `Order for ${selectedItems.length} items`,
+                items: selectedItems.map(item => ({ product_id: item.id, quantity: item.quantity })),
+                phone: address.mobile,
+                address_line: address.addressLine,
+                city: address.city,
+                state: address.state,
+                pincode: address.pincode
             });
 
-            if (!response.ok) {
-                toast.error("Failed to initiate payment");
-                setLoading(false);
-                return;
-            }
-
-            const data = await response.json();
+            const data = response.data;
 
             // 2. Create hidden form and submit to PayU
             const form = document.createElement('form');
