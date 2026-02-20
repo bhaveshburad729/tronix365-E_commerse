@@ -2,14 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Package, User, LogOut, ChevronRight, Clock, CheckCircle, XCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { API_BASE_URL } from '../api/config';
+import client from '../api/client';
 
 const UserDashboard = () => {
     const navigate = useNavigate();
     const [user, setUser] = useState(null);
     const [orders, setOrders] = useState([]);
     const [activeTab, setActiveTab] = useState('orders');
+
+    // Pagination State
+    const [page, setPage] = useState(1);
+    const [hasMore, setHasMore] = useState(true);
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const LIMIT = 5; // Smaller limit for user dashboard
 
     useEffect(() => {
         const fetchUserData = async () => {
@@ -20,34 +26,28 @@ const UserDashboard = () => {
             }
 
             try {
-                // Fetch Profile
-                const profileRes = await fetch(`${API_BASE_URL}/profile`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                // Fetch Profile and Initial Orders concurrently
+                const [profileRes, ordersRes] = await Promise.all([
+                    client.get('/profile'),
+                    client.get(`/orders/user?skip=0&limit=${LIMIT}`)
+                ]);
 
-                if (profileRes.ok) {
-                    const profileData = await profileRes.json();
-                    setUser(profileData);
-                } else {
-                    throw new Error('Failed to fetch profile');
-                }
-
-                // Fetch Orders
-                const ordersRes = await fetch(`${API_BASE_URL}/orders/user`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-
-                if (ordersRes.ok) {
-                    const ordersData = await ordersRes.json();
-                    setOrders(ordersData);
-                }
+                setUser(profileRes.data);
+                setOrders(ordersRes.data);
+                if (ordersRes.data.length < LIMIT) setHasMore(false);
 
             } catch (error) {
                 console.error("Dashboard error:", error);
-                toast.error("Session expired. Please login again.");
-                localStorage.removeItem('tronix_token');
-                localStorage.removeItem('tronix_user');
-                navigate('/login');
+
+                // If 401, token might be invalid
+                if (error.response && error.response.status === 401) {
+                    toast.error("Session expired. Please login again.");
+                    localStorage.removeItem('tronix_token');
+                    localStorage.removeItem('tronix_user');
+                    navigate('/login');
+                } else {
+                    toast.error("Failed to load dashboard data");
+                }
             } finally {
                 setLoading(false);
             }
@@ -55,6 +55,23 @@ const UserDashboard = () => {
 
         fetchUserData();
     }, [navigate]);
+
+    const handleLoadMore = async () => {
+        setLoadingMore(true);
+        try {
+            const nextSkip = page * LIMIT;
+            const res = await client.get(`/orders/user?skip=${nextSkip}&limit=${LIMIT}`);
+            const newOrders = res.data;
+
+            setOrders(prev => [...prev, ...newOrders]);
+            setPage(prev => prev + 1);
+            if (newOrders.length < LIMIT) setHasMore(false);
+        } catch (error) {
+            toast.error("Failed to load more orders");
+        } finally {
+            setLoadingMore(false);
+        }
+    };
 
     const handleLogout = () => {
         localStorage.removeItem('tronix_token');
@@ -122,47 +139,60 @@ const UserDashboard = () => {
                                         </button>
                                     </div>
                                 ) : (
-                                    orders.map((order) => (
-                                        <div key={order.id} className="bg-tronix-card border border-white/10 rounded-xl overflow-hidden">
-                                            <div className="p-4 border-b border-white/5 flex flex-wrap items-center justify-between gap-4 bg-white/5">
-                                                <div className="space-y-1">
-                                                    <p className="text-sm text-gray-400">Order ID</p>
-                                                    <p className="font-mono text-white">#{order.id}</p>
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <p className="text-sm text-gray-400">Date</p>
-                                                    <p className="text-white">Now</p> {/* Date not in DB yet, TODO: Add created_at */}
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <p className="text-sm text-gray-400">Total Amount</p>
-                                                    <p className="font-bold text-tronix-accent">₹{order.total_amount}</p>
-                                                </div>
-                                                <div>
-                                                    <span className={`px-3 py-1 rounded-full text-xs uppercase font-bold flex items-center gap-1 ${order.status === 'confirmed' ? 'bg-emerald-500/20 text-emerald-400' :
+                                    <>
+                                        {orders.map((order) => (
+                                            <div key={order.id} className="bg-tronix-card border border-white/10 rounded-xl overflow-hidden">
+                                                <div className="p-4 border-b border-white/5 flex flex-wrap items-center justify-between gap-4 bg-white/5">
+                                                    <div className="space-y-1">
+                                                        <p className="text-sm text-gray-400">Order ID</p>
+                                                        <p className="font-mono text-white">#{order.id}</p>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <p className="text-sm text-gray-400">Date</p>
+                                                        <p className="text-white">Now</p>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <p className="text-sm text-gray-400">Total Amount</p>
+                                                        <p className="font-bold text-tronix-accent">₹{order.total_amount}</p>
+                                                    </div>
+                                                    <div>
+                                                        <span className={`px-3 py-1 rounded-full text-xs uppercase font-bold flex items-center gap-1 ${order.status === 'confirmed' ? 'bg-emerald-500/20 text-emerald-400' :
                                                             order.status === 'failed' ? 'bg-red-500/20 text-red-400' :
                                                                 'bg-yellow-500/20 text-yellow-400'
-                                                        }`}>
-                                                        {order.status === 'confirmed' && <CheckCircle size={12} />}
-                                                        {order.status}
-                                                    </span>
+                                                            }`}>
+                                                            {order.status === 'confirmed' && <CheckCircle size={12} />}
+                                                            {order.status}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="p-4 space-y-3">
+                                                    {order.items.map((item, index) => (
+                                                        <div key={index} className="flex items-center gap-4">
+                                                            <div className="w-12 h-12 bg-white/5 rounded-lg flex items-center justify-center">
+                                                                <Package size={20} className="text-gray-500" />
+                                                            </div>
+                                                            <div className="flex-1">
+                                                                <p className="text-white font-medium">Product ID: {item.product_id}</p>
+                                                                <p className="text-sm text-gray-400">Qty: {item.quantity}</p>
+                                                            </div>
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             </div>
-                                            <div className="p-4 space-y-3">
-                                                {order.items.map((item, index) => (
-                                                    <div key={index} className="flex items-center gap-4">
-                                                        <div className="w-12 h-12 bg-white/5 rounded-lg flex items-center justify-center">
-                                                            <Package size={20} className="text-gray-500" />
-                                                            {/* TODO: Image not in OrderItem Schema yet */}
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <p className="text-white font-medium">Product ID: {item.product_id}</p>
-                                                            <p className="text-sm text-gray-400">Qty: {item.quantity}</p>
-                                                        </div>
-                                                    </div>
-                                                ))}
+                                        ))}
+
+                                        {hasMore && (
+                                            <div className="flex justify-center pt-4">
+                                                <button
+                                                    onClick={handleLoadMore}
+                                                    disabled={loadingMore}
+                                                    className="px-6 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-white transition-colors disabled:opacity-50"
+                                                >
+                                                    {loadingMore ? 'Loading...' : 'Load Older Orders'}
+                                                </button>
                                             </div>
-                                        </div>
-                                    ))
+                                        )}
+                                    </>
                                 )}
                             </div>
                         ) : (

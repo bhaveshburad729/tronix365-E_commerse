@@ -1,77 +1,172 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { Package, Users, DollarSign, TrendingUp, Plus, Image as ImageIcon, Search, X, Check } from 'lucide-react';
+import { Package, Users, DollarSign, TrendingUp, Plus, Image as ImageIcon, Search, X, Check, Edit, Trash2, Loader } from 'lucide-react';
 import { products as mockProducts } from '../data/mockData';
+import client from '../api/client';
 
 const AdminDashboard = () => {
     const [activeTab, setActiveTab] = useState('products');
+    const [stats, setStats] = useState({ total_revenue: 0, total_orders: 0, total_products: 0, active_users: 0 });
+
+    // Data States
     const [products, setProducts] = useState([]);
     const [orders, setOrders] = useState([]);
+
+    // Pagination States
+    const [productsPage, setProductsPage] = useState(1);
+    const [ordersPage, setOrdersPage] = useState(1);
+    const [hasMoreProducts, setHasMoreProducts] = useState(true);
+    const [hasMoreOrders, setHasMoreOrders] = useState(true);
+    const LIMIT = 10;
+
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
     const [error, setError] = useState(null);
 
+    // Initial Load
     useEffect(() => {
-        const fetchData = async () => {
+        const fetchInitialData = async () => {
+            setLoading(true);
             try {
-                // Timeout promise for the entire batch
-                const timeoutPromise = new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('Request timed out')), 2000)
-                );
+                // Fetch Stats
+                const statsRes = await client.get('/admin/stats');
+                setStats(statsRes.data);
 
-                const fetchPromise = Promise.all([
-                    fetch('http://localhost:8000/products'),
-                    fetch('http://localhost:8000/orders')
-                ]);
+                // Fetch Initial Products
+                const prodRes = await client.get(`/products?skip=0&limit=${LIMIT}`);
+                setProducts(prodRes.data);
+                if (prodRes.data.length < LIMIT) setHasMoreProducts(false);
 
-                const [productsRes, ordersRes] = await Promise.race([fetchPromise, timeoutPromise]);
+                // Fetch Initial Orders
+                const ordRes = await client.get(`/orders?skip=0&limit=${LIMIT}`);
+                setOrders(ordRes.data);
+                if (ordRes.data.length < LIMIT) setHasMoreOrders(false);
 
-                if (!productsRes.ok || !ordersRes.ok) {
-                    throw new Error('Failed to fetch data from server');
-                }
-
-                const productsData = await productsRes.json();
-                const ordersData = await ordersRes.json();
-
-                setProducts(Array.isArray(productsData) ? productsData : []);
-                setOrders(Array.isArray(ordersData) ? ordersData : []);
             } catch (error) {
                 console.error('Error fetching admin data:', error);
-                // Fallback to mock data for presentation
-                setProducts(mockProducts);
-                // Mock orders for demo if backend fails
-                setOrders([
-                    { id: 1001, customer_email: 'demo@user.com', items: [{}, {}], total_amount: 540, status: 'confirmed' },
-                    { id: 1002, customer_email: 'test@user.com', items: [{}], total_amount: 120, status: 'pending' }
-                ]);
-                setError(null); // Clear error to show dashboard with mock data
+                // Fallback to mock/zeros if backend fails (graceful degradation)
+                setError("Failed to load dashboard data. Ensure backend is running.");
             } finally {
                 setLoading(false);
             }
         };
-
-        fetchData();
+        fetchInitialData();
     }, []);
 
-    // Add Product Modal State
+    const loadMore = async () => {
+        setLoadingMore(true);
+        try {
+            if (activeTab === 'products') {
+                const nextSkip = productsPage * LIMIT;
+                const res = await client.get(`/products?skip=${nextSkip}&limit=${LIMIT}`);
+                const newItems = res.data;
+
+                setProducts(prev => [...prev, ...newItems]);
+                setProductsPage(prev => prev + 1);
+                if (newItems.length < LIMIT) setHasMoreProducts(false);
+            } else {
+                const nextSkip = ordersPage * LIMIT;
+                const res = await client.get(`/orders?skip=${nextSkip}&limit=${LIMIT}`);
+                const newItems = res.data;
+
+                setOrders(prev => [...prev, ...newItems]);
+                setOrdersPage(prev => prev + 1);
+                if (newItems.length < LIMIT) setHasMoreOrders(false);
+            }
+        } catch (err) {
+            toast.error("Failed to load more items");
+        } finally {
+            setLoadingMore(false);
+        }
+    };
+
+    // Add/Edit Product Modal State
     const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+    const [editingProduct, setEditingProduct] = useState(null); // Track if editing
     const [newProduct, setNewProduct] = useState({
         title: '', category: 'Development Boards', price: '', description: '', image: ''
     });
+    const [uploading, setUploading] = useState(false);
+    const fileInputRef = React.useRef(null);
 
-    const handleAddProduct = (e) => {
-        e.preventDefault();
-        const product = { ...newProduct, id: products.length + 1 };
-        setProducts([...products, product]);
-        setIsAddProductOpen(false);
+    // Delete Modal State
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [productToDelete, setProductToDelete] = useState(null);
+
+    const handleOpenAddModal = () => {
+        setEditingProduct(null);
         setNewProduct({ title: '', category: 'Development Boards', price: '', description: '', image: '' });
-        toast.success('Product added successfully');
+        setIsAddProductOpen(true);
     };
 
-    // Calculate Stats
-    const totalRevenue = Array.isArray(orders) ? orders.reduce((sum, order) => sum + order.total_amount, 0) : 0;
-    const totalOrders = Array.isArray(orders) ? orders.length : 0;
-    // Mock user count for now or fetch if we had users endpoint
-    const activeUsers = 890;
+    const handleOpenEditModal = (product) => {
+        setEditingProduct(product);
+        setNewProduct({ ...product }); // Pre-fill form
+        setIsAddProductOpen(true);
+    };
+
+    const handleSaveProduct = async (e) => {
+        e.preventDefault();
+        try {
+            if (editingProduct) {
+                // Update existing
+                const res = await client.put(`/products/${editingProduct.id}`, newProduct);
+                setProducts(products.map(p => p.id === editingProduct.id ? res.data : p));
+                toast.success('Product updated successfully');
+            } else {
+                // Create new
+                const res = await client.post('/products', newProduct);
+                setProducts([res.data, ...products]);
+                toast.success('Product added successfully');
+            }
+            setIsAddProductOpen(false);
+            setNewProduct({ title: '', category: 'Development Boards', price: '', description: '', image: '' });
+        } catch (error) {
+            console.error("Save product error:", error);
+            toast.error('Failed to save product');
+        }
+    };
+
+    const handleImageUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        setUploading(true);
+        try {
+            const res = await client.post("/upload", formData, {
+                headers: { "Content-Type": "multipart/form-data" },
+            });
+            setNewProduct({ ...newProduct, image: res.data.url });
+            toast.success("Image uploaded successfully");
+        } catch (error) {
+            console.error("Upload error:", error);
+            toast.error("Failed to upload image");
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const handleDeleteClick = (product) => {
+        setProductToDelete(product);
+        setIsDeleteModalOpen(true);
+    };
+
+    const confirmDeleteProduct = async () => {
+        if (!productToDelete) return;
+        try {
+            await client.delete(`/products/${productToDelete.id}`);
+            setProducts(products.filter(p => p.id !== productToDelete.id));
+            toast.success('Product deleted successfully');
+            setIsDeleteModalOpen(false);
+            setProductToDelete(null);
+        } catch (error) {
+            console.error("Delete product error:", error);
+            toast.error('Failed to delete product');
+        }
+    };
 
     if (loading) {
         return <div className="min-h-screen pt-24 text-center text-white">Loading dashboard...</div>;
@@ -98,7 +193,7 @@ const AdminDashboard = () => {
                     </div>
                     <div className="flex gap-3">
                         <button
-                            onClick={() => setIsAddProductOpen(true)}
+                            onClick={handleOpenAddModal}
                             className="flex items-center gap-2 bg-tronix-accent text-white px-4 py-2 rounded-lg hover:bg-emerald-600 transition-colors"
                         >
                             <Plus size={18} /> Add Product
@@ -109,9 +204,9 @@ const AdminDashboard = () => {
                 {/* Stats Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     {[
-                        { title: 'Total Revenue', value: `₹${totalRevenue.toLocaleString()}`, icon: DollarSign, color: 'text-emerald-500' },
-                        { title: 'Total Orders', value: totalOrders, icon: Package, color: 'text-violet-500' },
-                        { title: 'Active Users', value: activeUsers, icon: Users, color: 'text-purple-500' },
+                        { title: 'Total Revenue', value: `₹${stats.total_revenue.toLocaleString()}`, icon: DollarSign, color: 'text-emerald-500' },
+                        { title: 'Total Orders', value: stats.total_orders, icon: Package, color: 'text-violet-500' },
+                        { title: 'Active Users', value: stats.active_users, icon: Users, color: 'text-purple-500' },
                         { title: 'Growth', value: '+24.5%', icon: TrendingUp, color: 'text-orange-500' },
                     ].map((stat, i) => (
                         <div key={i} className="bg-tronix-card border border-white/5 p-6 rounded-xl">
@@ -125,7 +220,7 @@ const AdminDashboard = () => {
                 </div>
 
                 {/* Content Area */}
-                <div className="bg-tronix-card border border-white/5 rounded-xl overflow-hidden min-h-[500px]">
+                <div className="bg-tronix-card border border-white/5 rounded-xl overflow-hidden min-h-[500px] flex flex-col">
                     <div className="border-b border-white/5 p-4 flex items-center justify-between">
                         <div className="flex gap-4">
                             <button
@@ -152,71 +247,103 @@ const AdminDashboard = () => {
                         </div>
                     </div>
 
-                    <div className="p-6">
+                    <div className="p-6 flex-1">
                         {activeTab === 'products' ? (
-                            <table className="w-full text-left text-sm text-gray-400">
-                                <thead className="bg-white/5 text-white uppercase font-medium">
-                                    <tr>
-                                        <th className="px-6 py-4 rounded-l-lg">Product</th>
-                                        <th className="px-6 py-4">SKV</th>
-                                        <th className="px-6 py-4">Category</th>
-                                        <th className="px-6 py-4">Price</th>
-                                        <th className="px-6 py-4">Stock</th>
-                                        <th className="px-6 py-4 rounded-r-lg">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-white/5">
-                                    {products.map((item) => (
-                                        <tr key={item.id} className="hover:bg-white/5 transition-colors">
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center overflow-hidden">
-                                                        <img src={item.image} alt="" className="w-full h-full object-cover" />
+                            <>
+                                <table className="w-full text-left text-sm text-gray-400 mb-4">
+                                    <thead className="bg-white/5 text-white uppercase font-medium">
+                                        <tr>
+                                            <th className="px-6 py-4 rounded-l-lg">Product</th>
+                                            <th className="px-6 py-4">SKV</th>
+                                            <th className="px-6 py-4">Category</th>
+                                            <th className="px-6 py-4">Price</th>
+                                            <th className="px-6 py-4">Stock</th>
+                                            <th className="px-6 py-4 rounded-r-lg">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/5">
+                                        {products.map((item) => (
+                                            <tr key={item.id} className="hover:bg-white/5 transition-colors">
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center overflow-hidden">
+                                                            <img src={item.image} alt="" className="w-full h-full object-cover" />
+                                                        </div>
+                                                        <span className="font-medium text-white">{item.title}</span>
                                                     </div>
-                                                    <span className="font-medium text-white">{item.title}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-gray-300 font-mono text-xs">{item.skv || 'N/A'}</td>
-                                            <td className="px-6 py-4">{item.category}</td>
-                                            <td className="px-6 py-4 text-white">₹{item.sale_price || item.price}</td>
-                                            <td className="px-6 py-4">{item.stock}</td>
-                                            <td className="px-6 py-4">
-                                                <span className="bg-emerald-500/10 text-emerald-500 px-3 py-1 rounded-full text-xs">In Stock</span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                                </td>
+                                                <td className="px-6 py-4 text-gray-300 font-mono text-xs">{item.skv || 'N/A'}</td>
+                                                <td className="px-6 py-4">{item.category}</td>
+                                                <td className="px-6 py-4 text-white">₹{item.sale_price || item.price}</td>
+                                                <td className="px-6 py-4">{item.stock}</td>
+                                                <td className="px-6 py-4">
+                                                    <span className="bg-emerald-500/10 text-emerald-500 px-3 py-1 rounded-full text-xs">In Stock</span>
+                                                </td>
+                                                <td className="px-6 py-4 flex gap-2">
+                                                    <button
+                                                        onClick={() => handleOpenEditModal(item)}
+                                                        className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-blue-400 transition-colors"
+                                                    >
+                                                        <Edit size={16} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteClick(item)}
+                                                        className="p-2 bg-white/5 hover:bg-red-500/20 rounded-lg text-red-400 transition-colors"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                                {hasMoreProducts && (
+                                    <div className="flex justify-center mt-4">
+                                        <button onClick={loadMore} disabled={loadingMore} className="text-tronix-primary hover:underline disabled:opacity-50">
+                                            {loadingMore ? 'Loading...' : 'Load More Products'}
+                                        </button>
+                                    </div>
+                                )}
+                            </>
                         ) : (
-                            <table className="w-full text-left text-sm text-gray-400">
-                                <thead className="bg-white/5 text-white uppercase font-medium">
-                                    <tr>
-                                        <th className="px-6 py-4 rounded-l-lg">Order ID</th>
-                                        <th className="px-6 py-4">Customer</th>
-                                        <th className="px-6 py-4">Items</th>
-                                        <th className="px-6 py-4">Total</th>
-                                        <th className="px-6 py-4 rounded-r-lg">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-white/5">
-                                    {orders.map((order, index) => (
-                                        <tr key={index} className="hover:bg-white/5 transition-colors">
-                                            <td className="px-6 py-4 text-white">#{order.id || 1000 + index}</td>
-                                            <td className="px-6 py-4">{order.customer_email}</td>
-                                            <td className="px-6 py-4">{order.items.length} Items</td>
-                                            <td className="px-6 py-4 text-white">₹{order.total_amount}</td>
-                                            <td className="px-6 py-4">
-                                                <span className={`px-3 py-1 rounded-full text-xs uppercase ${order.status === 'confirmed' ? 'bg-green-500/10 text-green-500' :
-                                                    order.status === 'pending' ? 'bg-yellow-500/10 text-yellow-500' :
-                                                        'bg-blue-500/10 text-blue-500'
-                                                    }`}>
-                                                    {order.status}
-                                                </span>
-                                            </td>
+                            <>
+                                <table className="w-full text-left text-sm text-gray-400 mb-4">
+                                    <thead className="bg-white/5 text-white uppercase font-medium">
+                                        <tr>
+                                            <th className="px-6 py-4 rounded-l-lg">Order ID</th>
+                                            <th className="px-6 py-4">Customer</th>
+                                            <th className="px-6 py-4">Items</th>
+                                            <th className="px-6 py-4">Total</th>
+                                            <th className="px-6 py-4 rounded-r-lg">Status</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/5">
+                                        {orders.map((order, index) => (
+                                            <tr key={index} className="hover:bg-white/5 transition-colors">
+                                                <td className="px-6 py-4 text-white">#{order.id}</td>
+                                                <td className="px-6 py-4">{order.customer_email}</td>
+                                                <td className="px-6 py-4">{Array.isArray(order.items) ? order.items.length : 0} Items</td>
+                                                <td className="px-6 py-4 text-white">₹{order.total_amount}</td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`px-3 py-1 rounded-full text-xs uppercase ${order.status === 'confirmed' ? 'bg-green-500/10 text-green-500' :
+                                                        order.status === 'pending' ? 'bg-yellow-500/10 text-yellow-500' :
+                                                            'bg-blue-500/10 text-blue-500'
+                                                        }`}>
+                                                        {order.status}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                                {hasMoreOrders && (
+                                    <div className="flex justify-center mt-4">
+                                        <button onClick={loadMore} disabled={loadingMore} className="text-tronix-primary hover:underline disabled:opacity-50">
+                                            {loadingMore ? 'Loading...' : 'Load More Orders'}
+                                        </button>
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
                 </div>
@@ -232,9 +359,11 @@ const AdminDashboard = () => {
                             <X size={24} />
                         </button>
 
-                        <h2 className="text-2xl font-display font-bold text-white mb-6">Add New Product</h2>
+                        <h2 className="text-2xl font-display font-bold text-white mb-6">
+                            {editingProduct ? 'Edit Product' : 'Add New Product'}
+                        </h2>
 
-                        <form onSubmit={handleAddProduct} className="space-y-4">
+                        <form onSubmit={handleSaveProduct} className="space-y-4">
                             <div>
                                 <label className="block text-sm text-gray-400 mb-1">Product Title</label>
                                 <input
@@ -292,8 +421,20 @@ const AdminDashboard = () => {
                                         onChange={(e) => setNewProduct({ ...newProduct, image: e.target.value })}
                                         className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-tronix-primary outline-none"
                                     />
-                                    <button type="button" className="bg-white/10 px-3 rounded-lg hover:bg-white/20 transition-colors">
-                                        <ImageIcon size={20} className="text-gray-300" />
+                                    <input
+                                        type="file"
+                                        ref={fileInputRef}
+                                        className="hidden"
+                                        accept="image/*"
+                                        onChange={handleImageUpload}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => fileInputRef.current.click()}
+                                        className="bg-white/10 px-3 rounded-lg hover:bg-white/20 transition-colors flex items-center justify-center min-w-[44px]"
+                                        disabled={uploading}
+                                    >
+                                        {uploading ? <Loader size={20} className="animate-spin text-tronix-primary" /> : <ImageIcon size={20} className="text-gray-300" />}
                                     </button>
                                 </div>
                             </div>
@@ -311,11 +452,39 @@ const AdminDashboard = () => {
                                 type="submit"
                                 className="w-full bg-tronix-primary hover:bg-violet-600 text-white font-bold py-3 rounded-xl transition-colors mt-2"
                             >
-                                Create Product
+                                {editingProduct ? 'Update Product' : 'Create Product'}
                             </button>
                         </form>
                     </div>
                 </div >
+            )}
+            {/* Delete Confirmation Modal */}
+            {isDeleteModalOpen && (
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-tronix-card border border-white/10 rounded-2xl w-full max-w-sm p-6 relative text-center">
+                        <div className="mx-auto w-12 h-12 bg-red-500/20 rounded-full flex items-center justify-center mb-4">
+                            <Trash2 className="text-red-500" size={24} />
+                        </div>
+                        <h3 className="text-xl font-bold text-white mb-2">Delete Product?</h3>
+                        <p className="text-gray-400 mb-6">
+                            Are you sure you want to delete <span className="text-white font-medium">{productToDelete?.title}</span>? This action cannot be undone.
+                        </p>
+                        <div className="flex gap-3 justify-center">
+                            <button
+                                onClick={() => setIsDeleteModalOpen(false)}
+                                className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmDeleteProduct}
+                                className="px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white transition-colors"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div >
     );

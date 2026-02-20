@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, User, ArrowRight, Loader } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, Loader, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'framer-motion';
+import client from '../api/client';
 
 const Signup = () => {
     const [formData, setFormData] = useState({
@@ -12,6 +13,8 @@ const Signup = () => {
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const navigate = useNavigate();
 
     const handleChange = (e) => {
@@ -30,43 +33,33 @@ const Signup = () => {
         setLoading(true);
 
         try {
-            console.log("Sending signup request to http://localhost:8000/signup", formData);
-            const response = await fetch('http://localhost:8000/signup', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    email: formData.email,
-                    password: formData.password,
-                    full_name: formData.full_name
-                }),
+            console.log("Sending signup request...", formData);
+            const response = await client.post('/signup', {
+                email: formData.email,
+                password: formData.password,
+                full_name: formData.full_name
             });
 
-            const data = await response.json();
+            const data = response.data;
 
-            if (response.ok) {
-                // Auto login (store token)
-                localStorage.setItem('tronix_token', data.access_token);
-                localStorage.setItem('tronix_user', JSON.stringify({
-                    name: data.user_name,
-                    role: data.role,
-                    email: formData.email
-                }));
+            // Auto login (store token)
+            localStorage.setItem('tronix_token', data.access_token);
+            localStorage.setItem('tronix_user', JSON.stringify({
+                name: data.user_name,
+                role: data.role,
+                email: formData.email
+            }));
 
-                // Redirect
-                navigate('/');
-                window.location.reload(); // To update Navbar state
-            } else {
-                console.error("Signup failed:", data);
-                setError(data.detail || 'Registration failed');
-                alert(`Signup failed: ${data.detail || 'Registration failed'}`);
-            }
+            // Redirect
+            navigate('/');
+            window.location.reload(); // To update Navbar state
         } catch (err) {
             console.error("Signup Error:", err);
-            setError('Server unavailable. Please try again later.');
-            alert(`Error: ${err.message}`);
-        } finally {
+            const errMsg = err.response?.data?.detail || 'Registration failed';
+            setError(errMsg);
+            alert(`Signup failed: ${errMsg}`);
+        }
+        finally {
             setLoading(false);
         }
     };
@@ -128,13 +121,20 @@ const Signup = () => {
                             </div>
                             <input
                                 name="password"
-                                type="password"
+                                type={showPassword ? "text" : "password"}
                                 required
-                                className="block w-full pl-10 pr-3 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-tronix-primary/50 focus:border-transparent transition-all"
+                                className="block w-full pl-10 pr-10 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-tronix-primary/50 focus:border-transparent transition-all"
                                 placeholder="Password"
                                 value={formData.password}
                                 onChange={handleChange}
                             />
+                            <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-white transition-colors"
+                            >
+                                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                            </button>
                         </div>
 
                         <div className="relative group">
@@ -143,13 +143,20 @@ const Signup = () => {
                             </div>
                             <input
                                 name="confirmPassword"
-                                type="password"
+                                type={showConfirmPassword ? "text" : "password"}
                                 required
-                                className="block w-full pl-10 pr-3 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-tronix-primary/50 focus:border-transparent transition-all"
+                                className="block w-full pl-10 pr-10 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-tronix-primary/50 focus:border-transparent transition-all"
                                 placeholder="Confirm Password"
                                 value={formData.confirmPassword}
                                 onChange={handleChange}
                             />
+                            <button
+                                type="button"
+                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-white transition-colors"
+                            >
+                                {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                            </button>
                         </div>
                     </div>
 

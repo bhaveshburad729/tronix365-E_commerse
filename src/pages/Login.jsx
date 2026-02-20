@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { User, Lock, Mail, Github, Chrome, ShieldCheck } from 'lucide-react';
+import { User, Lock, Mail, Github, Chrome, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
-import { API_BASE_URL } from '../api/config';
+import client from '../api/client';
 
 const Login = () => {
     const [isAdmin, setIsAdmin] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
     const navigate = useNavigate();
 
     const handleLogin = async (e) => {
@@ -14,55 +15,49 @@ const Login = () => {
         try {
             // Get values from form - assuming standard inputs
             const email = e.target.querySelector('input[type="email"]').value;
-            const password = e.target.querySelector('input[type="password"]').value;
+            // Select password input regardless of its current type (text or password)
+            const passwordInput = e.target.querySelector('input[name="password"]');
+            const password = passwordInput ? passwordInput.value : e.target.querySelectorAll('input')[1].value;
 
-            // Prepare form data for OAuth2
+            // Prepare form data for OAuth2 (x-www-form-urlencoded)
             const formData = new URLSearchParams();
             formData.append('username', email); // OAuth2 expects 'username'
             formData.append('password', password);
 
-            const response = await fetch(`${API_BASE_URL}/login`, {
-                method: 'POST',
+            const response = await client.post('/login', formData, {
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: formData,
             });
 
-            if (response.ok) {
-                const data = await response.json();
-                localStorage.setItem('tronix_token', data.access_token);
-                // Store user details for simple frontend usage
-                localStorage.setItem('tronix_user', JSON.stringify({
-                    name: data.user_name,
-                    role: data.role,
-                    email: email
-                }));
+            const data = response.data;
+            localStorage.setItem('tronix_token', data.access_token);
+            // Store user details for simple frontend usage
+            localStorage.setItem('tronix_user', JSON.stringify({
+                name: data.user_name,
+                role: data.role,
+                email: email
+            }));
 
-                if (data.role === 'admin') {
-                    navigate('/admin');
-                } else {
-                    navigate('/');
-                }
-                // Force reload to update navbar state (simple fix for now)
-                window.location.reload();
+            if (data.role === 'admin') {
+                navigate('/admin');
             } else {
-                const errorData = await response.json();
-                alert(errorData.detail || 'Login failed. Please check your credentials.');
+                navigate('/');
             }
+            // Force reload to update navbar state (simple fix for now)
+            window.location.reload();
         } catch (error) {
             console.error('Login error:', error);
-            // Fallback for demo if backend is offline
+            const errMsg = error.response?.data?.detail || 'Login failed. Please check your credentials.';
+
+            // Fallback for demo if backend is offline or specific hardcoded admin
             if (e.target.querySelector('input[type="email"]').value === "admin@tronix365.com") {
                 alert("Backend offline. Logging in as local admin for demo.");
                 localStorage.setItem('tronix_user', JSON.stringify({ name: "Demo Admin", role: "admin" }));
                 navigate('/admin');
                 window.location.reload();
             } else {
-                alert('Backend unavailable. Logging in as demo user.');
-                localStorage.setItem('tronix_user', JSON.stringify({ name: "Demo User", role: "user" }));
-                navigate('/');
-                window.location.reload();
+                alert(errMsg);
             }
         }
     };
@@ -121,10 +116,18 @@ const Login = () => {
                             <div className="relative">
                                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
                                 <input
-                                    type="password"
+                                    name="password"
+                                    type={showPassword ? "text" : "password"}
                                     placeholder="••••••••"
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 pl-12 py-3 text-white focus:outline-none focus:border-tronix-accent transition-colors placeholder:text-gray-600"
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 pl-12 pr-12 py-3 text-white focus:outline-none focus:border-tronix-accent transition-colors placeholder:text-gray-600"
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
+                                >
+                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
                             </div>
                         </div>
                     ) : (
@@ -133,10 +136,18 @@ const Login = () => {
                             <div className="relative">
                                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
                                 <input
-                                    type="password"
+                                    name="password"
+                                    type={showPassword ? "text" : "password"}
                                     placeholder="Enter Password or OTP"
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 pl-12 py-3 text-white focus:outline-none focus:border-tronix-primary transition-colors placeholder:text-gray-600"
+                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 pl-12 pr-12 py-3 text-white focus:outline-none focus:border-tronix-primary transition-colors placeholder:text-gray-600"
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
+                                >
+                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
                             </div>
                             <div className="text-right">
                                 <a href="#" className="text-xs text-tronix-primary hover:text-white transition-colors">Use OTP Instead?</a>
