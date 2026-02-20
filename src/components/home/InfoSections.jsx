@@ -67,6 +67,7 @@ export const AboutSection = () => {
 
 import { useState } from 'react';
 import toast from 'react-hot-toast';
+import client from '../../api/client';
 
 export const ContactSection = () => {
     const [formData, setFormData] = useState({ name: '', email: '', subject: '', message: '' });
@@ -90,22 +91,16 @@ export const ContactSection = () => {
                 message: `Subject: ${formData.subject}\n\n${formData.message}`
             };
 
-            const response = await fetch('http://localhost:8000/contact', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
+            const response = await client.post('/contact', payload);
 
-            if (response.ok) {
-                toast.success('Message sent successfully!');
-                setFormData({ name: '', email: '', subject: '', message: '' });
-            } else {
-                toast.error('Failed to send message.');
-            }
+            toast.success('Message sent successfully!');
+            setFormData({ name: '', email: '', subject: '', message: '' });
         } catch (error) {
             console.error('Contact error:', error);
-            toast.error('Something went wrong. Please try again.');
-        } finally {
+            const errMsg = error.response?.data?.detail || 'Failed to send message.';
+            toast.error(errMsg);
+        }
+        finally {
             setLoading(false);
         }
     };

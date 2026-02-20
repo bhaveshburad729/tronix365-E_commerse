@@ -100,12 +100,12 @@ const Navbar = () => {
                                 </div>
                             ) : (
                                 <div className="flex items-center gap-3">
-                                    {/* <Link to="/login" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">
+                                    <Link to="/login" className="text-sm font-medium text-gray-300 hover:text-white transition-colors">
                                         Login
                                     </Link>
                                     <Link to="/signup" className="flex items-center gap-2 bg-tronix-primary hover:bg-violet-600 px-4 py-2 rounded-full text-white text-sm font-bold transition-all shadow-lg shadow-violet-500/20">
                                         Sign Up
-                                    </Link> */}
+                                    </Link>
                                 </div>
                             )}
                         </div>
@@ -158,7 +158,7 @@ const Navbar = () => {
                                             </div>
                                         </div>
                                         <div className="grid grid-cols-2 gap-3">
-                                            {/* <Link
+                                            <Link
                                                 to="/login"
                                                 onClick={() => setIsOpen(false)}
                                                 className="text-center py-2 rounded-lg bg-white/5 text-white text-sm font-medium"
@@ -171,7 +171,7 @@ const Navbar = () => {
                                                 className="text-center py-2 rounded-lg bg-tronix-primary text-white text-sm font-bold"
                                             >
                                                 Sign Up
-                                            </Link> */}
+                                            </Link>
                                         </div>
                                     </div>
                                 )}
@@ -179,7 +179,7 @@ const Navbar = () => {
                         </motion.div>
                     )}
                 </AnimatePresence>
-            </motion.nav>
+            </motion.nav >
         </>
     );
 };

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search, X, ArrowRight } from 'lucide-react';
 import { products as mockProducts } from '../../data/mockData';
 import { Link } from 'react-router-dom';
+import client from '../../api/client';
 
 const SearchOverlay = ({ isOpen, onClose }) => {
     const [query, setQuery] = useState('');
@@ -12,16 +13,19 @@ const SearchOverlay = ({ isOpen, onClose }) => {
     // Fetch products when opened
     useEffect(() => {
         if (isOpen) {
-            fetch('http://localhost:8000/products')
-                .then(res => res.ok ? res.json() : [])
-                .then(data => {
+            client.get('/products')
+                .then(res => {
+                    const data = res.data;
                     if (data.length > 0) {
                         setAllProducts(data);
                     } else {
                         setAllProducts(mockProducts);
                     }
                 })
-                .catch(() => setAllProducts(mockProducts));
+                .catch((err) => {
+                    console.error("Search failed, using mock data:", err);
+                    setAllProducts(mockProducts);
+                });
         }
     }, [isOpen]);
 

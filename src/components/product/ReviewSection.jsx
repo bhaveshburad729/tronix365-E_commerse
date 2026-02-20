@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Star, User, Send } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
+import client from '../../api/client';
 
 const ReviewSection = ({ productId }) => {
     const [reviews, setReviews] = useState([]);
@@ -16,18 +17,16 @@ const ReviewSection = ({ productId }) => {
     // Fetch Reviews
     const fetchReviews = async () => {
         try {
-            const response = await fetch(`http://localhost:8000/products/${productId}/reviews`);
-            if (response.ok) {
-                const data = await response.json();
-                setReviews(data);
+            const response = await client.get(`/products/${productId}/reviews`);
+            const data = response.data;
+            setReviews(data);
 
-                // Calculate Stats
-                if (data.length > 0) {
-                    const avg = data.reduce((acc, r) => acc + r.rating, 0) / data.length;
-                    setStats({ average: avg, count: data.length });
-                } else {
-                    setStats({ average: 0, count: 0 });
-                }
+            // Calculate Stats
+            if (data.length > 0) {
+                const avg = data.reduce((acc, r) => acc + r.rating, 0) / data.length;
+                setStats({ average: avg, count: data.length });
+            } else {
+                setStats({ average: 0, count: 0 });
             }
         } catch (error) {
             console.error('Failed to fetch reviews:', error);
@@ -48,28 +47,22 @@ const ReviewSection = ({ productId }) => {
         const userName = user ? user.user_name || "Anonymous" : "Guest User";
 
         try {
-            const response = await fetch(`http://localhost:8000/products/${productId}/reviews`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    user_name: userName,
-                    rating,
-                    comment
-                })
+            await client.post(`/products/${productId}/reviews`, {
+                user_name: userName,
+                rating,
+                comment
             });
 
-            if (response.ok) {
-                toast.success('Review submitted successfully!');
-                setComment('');
-                setRating(5);
-                fetchReviews(); // Refresh list
-            } else {
-                toast.error('Failed to submit review');
-            }
+            toast.success('Review submitted successfully!');
+            setComment('');
+            setRating(5);
+            fetchReviews(); // Refresh list
         } catch (error) {
             console.error('Error submitting review:', error);
-            toast.error('Something went wrong');
-        } finally {
+            const errMsg = error.response?.data?.detail || 'Failed to submit review';
+            toast.error(errMsg);
+        }
+        finally {
             setSubmitting(false);
         }
     };
