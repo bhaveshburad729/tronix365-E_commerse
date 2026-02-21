@@ -1,18 +1,19 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from database import engine, Base, get_db
-from models import Product, ProductDB, Order, OrderCreate, OrderDB, OrderItemDB, LoginRequest, ReviewDB, ReviewCreate, ReviewResponse, ProductCreate, ProductUpdate
+from models import Product, ProductDB, Order, OrderCreate, OrderDB, OrderItemDB, LoginRequest, ReviewDB, ReviewCreate, ReviewResponse, ProductCreate, ProductUpdate, ContactMessageDB
 import requests
 import hashlib
 import os
 from pydantic import BaseModel, EmailStr
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi.staticfiles import StaticFiles
 from fastapi import UploadFile, File
 import shutil
+from email_utils import send_order_confirmation_email
 
 # Ensure 'uploads' directory exists
 UPLOAD_DIR = "uploads"
@@ -168,8 +169,10 @@ async def get_reviews(product_id: int, db: Session = Depends(get_db)):
     reviews = db.query(ReviewDB).filter(ReviewDB.product_id == product_id).all()
     return reviews
 
+from email_utils import send_order_confirmation_email
+
 @app.post("/orders", status_code=201)
-async def create_order(order: OrderCreate, db: Session = Depends(get_db)):
+async def create_order(order: OrderCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     # Create Order
     new_order = OrderDB(
         customer_email=order.customer_email,
@@ -179,10 +182,17 @@ async def create_order(order: OrderCreate, db: Session = Depends(get_db)):
     
     # Process Items
     for item in order.items:
-        # Fetch product to get current price
+        # Identify Product
         product = db.query(ProductDB).filter(ProductDB.id == item.product_id).first()
         if not product:
-            continue # Skip invalid products or raise error
+            raise HTTPException(status_code=400, detail=f"Product ID {item.product_id} is invalid.")
+            
+        # Enforce Stock Check Globally
+        if product.stock < item.quantity:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Insufficient stock for {product.title}. Only {product.stock} available."
+            )
             
         # Determine price (sale price > mrp > 0)
         price = product.sale_price if product.sale_price else (product.price if product.price else 0.0)
@@ -195,51 +205,31 @@ async def create_order(order: OrderCreate, db: Session = Depends(get_db)):
         )
         new_order.items.append(order_item)
         
-        # Deduct Stock (Optional but good practice)
-        if product.stock >= item.quantity:
-            product.stock -= item.quantity
+        # Deduct Stock globally
+        product.stock -= item.quantity
 
     db.add(new_order)
     db.commit()
     db.refresh(new_order)
-    print(f"Order saved: {new_order.id}")
+
+    # Dispatch Order Confirmation Email in the background
+    background_tasks.add_task(send_order_confirmation_email, new_order)
+    
+    print(f"Order saved and email queued: {new_order.id}")
     return {"message": "Order placed successfully", "order_id": new_order.id, "status": "confirmed"}
 
 
 @app.get("/orders", response_model=List[Order])
 async def get_orders(skip: int = 0, limit: int = 20, db: Session = Depends(get_db)):
-    orders = db.query(OrderDB).options(joinedload(OrderDB.items)).offset(skip).limit(limit).all()
+    orders = db.query(OrderDB).options(
+        joinedload(OrderDB.items).joinedload(OrderItemDB.product)
+    ).offset(skip).limit(limit).all()
     return orders
-
-class ContactMessage(BaseModel):
-    name: str
-    email: EmailStr
-    message: str
-
-from email_utils import send_contact_form_notification
-
-@app.post("/contact")
-async def send_contact_email(contact: ContactMessage):
-    success = send_contact_form_notification(contact.name, contact.email, contact.message)
-    
-    if success:
-        return {"message": "Message sent successfully"}
-    else:
-        # Fallback for demo or error
-        # Check if it was just because of missing key (already handled in utils logging)
-        # For UI UX, we might still return success if it's a "soft" failure like demo mode, 
-        # but let's return error if it failed to ensure robustness.
-        # However, checking current implementation logic:
-        # If API key is missing, utils returns False.
-        # If request fails, utils returns False.
-        raise HTTPException(status_code=500, detail="Failed to send email")
 
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from auth import verify_password, get_password_hash, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
 from datetime import timedelta
-from models import UserDB, UserCreate, Token, UserLogin, UserResponse
-
-# ... (Previous imports stay, verify context)
+from models import UserDB, UserCreate, Token, UserLogin, UserResponse, UserUpdate
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
@@ -267,6 +257,40 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     if user is None:
         raise credentials_exception
     return user
+
+
+
+class ContactMessage(BaseModel):
+    name: str
+    email: EmailStr
+    message: str
+
+from email_utils import send_contact_form_notification
+from models import ContactMessageDB
+
+from fastapi import BackgroundTasks
+
+@app.post("/contact")
+async def send_contact_email(contact: ContactMessage, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    # 1. Save to Database
+    try:
+        new_msg = ContactMessageDB(
+            name=contact.name,
+            email=contact.email,
+            message=contact.message
+        )
+        db.add(new_msg)
+        db.commit()
+    except Exception as e:
+        print(f"Error saving contact message to DB: {e}")
+
+    # 2. Try sending the email in the background to prevent UI hanging
+    background_tasks.add_task(send_contact_form_notification, contact.name, contact.email, contact.message)
+
+    # 3. Always return success to the UI instantly (since it's in the DB)
+    return {"message": "Message sent successfully, queued for delivery"}
+
+
 
 @app.post("/signup", response_model=Token)
 async def signup(user: UserCreate, db: Session = Depends(get_db)):
@@ -323,11 +347,47 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
 async def get_user_profile(current_user: UserDB = Depends(get_current_user)):
     return current_user
 
+@app.put("/profile", response_model=UserResponse)
+async def update_user_profile(user_update: UserUpdate, current_user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
+    if user_update.full_name is not None:
+        current_user.full_name = user_update.full_name
+    if user_update.password is not None:
+        from auth import get_password_hash
+        current_user.hashed_password = get_password_hash(user_update.password)
+    if user_update.profile_picture is not None:
+        current_user.profile_picture = user_update.profile_picture
+        
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+@app.get("/debug-orders")
+async def debug_orders(db: Session = Depends(get_db)):
+    orders = db.query(OrderDB).order_by(OrderDB.id.desc()).limit(3).all()
+    users = db.query(UserDB).order_by(UserDB.id.desc()).limit(3).all()
+    return {
+        "recent_orders": [{"id": o.id, "email": o.customer_email, "status": o.status} for o in orders],
+        "recent_users": [{"id": u.id, "email": u.email} for u in users]
+    }
+
 @app.get("/orders/user", response_model=List[Order])
 async def get_user_orders(skip: int = 0, limit: int = 20, current_user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
     # Fetch orders based on customer_email matching the logged-in user
-    orders = db.query(OrderDB).filter(OrderDB.customer_email == current_user.email).order_by(OrderDB.id.desc()).offset(skip).limit(limit).all()
+    orders = db.query(OrderDB).options(joinedload(OrderDB.items).joinedload(OrderItemDB.product)).filter(OrderDB.customer_email == current_user.email).order_by(OrderDB.id.desc()).offset(skip).limit(limit).all()
     return orders
+
+@app.get("/orders/{order_id}", response_model=Order)
+async def get_order_by_id(order_id: int, current_user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
+    # Fetch specific order
+    order = db.query(OrderDB).options(joinedload(OrderDB.items).joinedload(OrderItemDB.product)).filter(OrderDB.id == order_id).first()
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+        
+    # Security: Ensure only the order creator (or an admin) can view it
+    if order.customer_email != current_user.email and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Not authorized to view this order")
+        
+    return order
     
 # Trigger reload for env update
 
@@ -465,6 +525,7 @@ async def mock_payment_process(
 
 @app.post("/payment/callback")
 async def payment_callback(
+    background_tasks: BackgroundTasks,
     status: str = Form(...),
     firstname: str = Form(...),
     amount: str = Form(...),
@@ -503,12 +564,16 @@ async def payment_callback(
                 order.status = "confirmed"
                 # Decrement Stock
                 if order.items:
-                    for item in order.items: # item is a dict here since it came from JSON column
-                        product = db.query(ProductDB).filter(ProductDB.id == item['product_id']).first()
+                    for item in order.items:
+                        product = db.query(ProductDB).filter(ProductDB.id == item.product_id).first()
                         if product:
-                            product.stock -= item['quantity']
+                            product.stock -= item.quantity
                             if product.stock < 0: product.stock = 0 # Safety check
                 db.commit() # Commit both status and stock update
+                db.refresh(order)
+                
+                # Payment succeeds and order is confirmed. Send HTML invoice!
+                background_tasks.add_task(send_order_confirmation_email, order)
         else:
             order.status = "failed"
             db.commit()
@@ -528,11 +593,25 @@ async def get_admin_stats(db: Session = Depends(get_db)):
     total_products = db.query(ProductDB).count()
     total_users = db.query(UserDB).count()
     
+    # Calculate 30-day Revenue Growth
+    now = datetime.utcnow()
+    thirty_days_ago = now - timedelta(days=30)
+    sixty_days_ago = now - timedelta(days=60)
+    
+    current_revenue = db.query(func.sum(OrderDB.total_amount)).filter(OrderDB.created_at >= thirty_days_ago).scalar() or 0.0
+    previous_revenue = db.query(func.sum(OrderDB.total_amount)).filter(OrderDB.created_at >= sixty_days_ago, OrderDB.created_at < thirty_days_ago).scalar() or 0.0
+    
+    if previous_revenue == 0:
+        growth = 100.0 if current_revenue > 0 else 0.0
+    else:
+        growth = ((current_revenue - previous_revenue) / previous_revenue) * 100.0
+    
     return {
         "total_revenue": total_revenue,
         "total_orders": total_orders,
         "total_products": total_products,
-        "active_users": total_users
+        "active_users": total_users,
+        "growth": round(growth, 1)
     }
 
 @app.post("/upload")
