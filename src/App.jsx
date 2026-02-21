@@ -40,7 +40,20 @@ const Placeholder = ({ title }) => (
   </div>
 );
 
-const basename = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
+// Robust basename detection for subdirectory deployment
+const getBasename = () => {
+  // 1. Try Vite's build-time base URL
+  let base = import.meta.env.BASE_URL || '/';
+
+  // 2. Fallback: If we detect we're on the production domain in a known subdirectory
+  if (typeof window !== 'undefined' && window.location.pathname.startsWith('/e-commerse')) {
+    return '/e-commerse';
+  }
+
+  return base.replace(/\/$/, '');
+};
+
+const basename = getBasename();
 
 function App() {
   return (
@@ -72,6 +85,8 @@ function App() {
                 <Route path="/payment/failure" element={<PaymentStatus />} />
                 <Route path="/terms" element={<Terms />} />
                 <Route path="/privacy" element={<Privacy />} />
+                {/* Catch-all route to prevent blank screen and handle potential routing mismatches */}
+                <Route path="*" element={<Home />} />
               </Routes>
             </main>
             <Footer />
