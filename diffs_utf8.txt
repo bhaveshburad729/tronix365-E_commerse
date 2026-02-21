@@ -1,0 +1,2740 @@
+
+========================================
+FILE: backend/check_db.py
+========================================
+diff --git a/backend/check_db.py b/backend/check_db.py
+index c283f94..179c20b 100644
+--- a/backend/check_db.py
++++ b/backend/check_db.py
+@@ -1,8 +1,32 @@
++import os
++import sys
++
+ from database import SessionLocal
+-from models import UserDB
++from models import OrderDB, UserDB
++
++def check_db():
++    db = SessionLocal()
++    try:
++        orders = db.query(OrderDB).order_by(OrderDB.id.desc()).limit(3).all()
++        users = db.query(UserDB).order_by(UserDB.id.desc()).limit(3).all()
++        
++        print("--- RECENT ORDERS ---")
++        for o in orders:
++            print(f"Order {o.id}:")
++            print(f"  customer_email : '{o.customer_email}'")
++            print(f"  full_name      : '{o.full_name}'")
++            print(f"  status         : '{o.status}'")
++            print(f"  total_amount   : {o.total_amount}")
++            
++        print("\n--- RECENT USERS ---")
++        for u in users:
++            print(f"User {u.id}:")
++            print(f"  email     : '{u.email}'")
++            print(f"  full_name : '{u.full_name}'")
++            print(f"  role      : '{u.role}'")
++            
++    finally:
++        db.close()
+ 
+-db = SessionLocal()
+-users = db.query(UserDB).all()
+-print(f"Total users: {len(users)}")
+-for u in users:
+-    print(f"User: {u.email}, Role: {u.role}, Hash: {u.hashed_password[:10]}...")
++if __name__ == "__main__":
++    check_db()
+
+========================================
+FILE: backend/email_utils.py
+========================================
+diff --git a/backend/email_utils.py b/backend/email_utils.py
+index 8c5a9bb..2a07234 100644
+--- a/backend/email_utils.py
++++ b/backend/email_utils.py
+@@ -89,3 +89,179 @@ def send_contact_form_notification(name: str, email: str, message: str):
+         sender_name="Tronix365 Contact Form",
+         reply_to={"name": name, "email": email}
+     )
++
++def generate_order_confirmation_html(order, frontend_url: str):
++    """
++    Generates a premium Amazon-style HTML invoice for the order confirmation email.
++    Assumes `order` is a SQLAlchemy OrderDB instance with a joined `.items` relationship
++    where each item has a `.product` relationship.
++    """
++    date_str = order.created_at.strftime("%B %d, %Y") if hasattr(order.created_at, 'strftime') else str(order.created_at).split("T")[0]
++    
++    # Calculate totals
++    subtotal = sum(item.price_at_purchase * item.quantity for item in order.items)
++    gst = subtotal * 0.18
++    grand_total = subtotal + gst
++
++    # Generate item rows
++    item_rows = ""
++    for item in order.items:
++        # Fallback to a placeholder if image is missing
++        img_url = item.product.image if getattr(item.product, 'image', None) else "https://via.placeholder.com/80?text=TRONIX365"
++        # Ensure image is absolute URL if it's relative
++        if img_url.startswith('/'):
++            img_url = f"{frontend_url}{img_url}"
++            
++        item_rows += f"""
++        <tr>
++            <td style="padding: 15px; border-bottom: 1px solid #eee;">
++                <img src="{img_url}" alt="Product" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 1px solid #eee;" />
++            </td>
++            <td style="padding: 15px; border-bottom: 1px solid #eee; text-align: left;">
++                <p style="margin: 0; font-weight: bold; color: #333;">{item.product.title}</p>
++                <p style="margin: 5px 0 0; font-size: 13px; color: #666;">Qty: {item.quantity}</p>
++            </td>
++            <td style="padding: 15px; border-bottom: 1px solid #eee; text-align: right;">
++                <p style="margin: 0; font-weight: bold; color: #333;">₹{(item.price_at_purchase * item.quantity):,.2f}</p>
++            </td>
++        </tr>
++        """
++
++    order_url = f"{frontend_url}/order/{order.id}"
++
++    html_template = f"""
++    <!DOCTYPE html>
++    <html>
++    <head>
++        <meta charset="utf-8">
++        <meta name="viewport" content="width=device-width, initial-scale=1.0">
++    </head>
++    <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f4f4f5; margin: 0; padding: 40px 20px; color: #333;">
++        
++        <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
++            <!-- Header -->
++            <tr>
++                <td style="background-color: #8b5cf6; padding: 40px 30px; text-align: center;">
++                    <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: 1px;">TRONIX365</h1>
++                    <p style="color: #eaddff; margin: 10px 0 0; font-size: 16px;">Order Confirmation</p>
++                </td>
++            </tr>
++            
++            <!-- Welcome Message -->
++            <tr>
++                <td style="padding: 40px 30px 20px;">
++                    <h2 style="margin: 0 0 15px; font-size: 22px; color: #111827;">Hello {order.full_name},</h2>
++                    <p style="margin: 0; font-size: 16px; color: #4b5563; line-height: 1.5;">
++                        Thank you for shopping with Tronix365! We've received your order and are currently processing it. 
++                        Below are the details of your purchase.
++                    </p>
++                </td>
++            </tr>
++            
++            <!-- Order Details Box -->
++            <tr>
++                <td style="padding: 0 30px 20px;">
++                    <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0;">
++                        <table width="100%" cellpadding="0" cellspacing="0">
++                            <tr>
++                                <td style="padding-bottom: 10px;">
++                                    <span style="font-size: 13px; color: #64748b; text-transform: uppercase; font-weight: bold;">Order ID</span><br>
++                                    <span style="font-size: 16px; color: #0f172a; font-weight: bold;">#order_tronix_{order.id:04d}</span>
++                                </td>
++                                <td style="padding-bottom: 10px; text-align: right;">
++                                    <span style="font-size: 13px; color: #64748b; text-transform: uppercase; font-weight: bold;">Order Date</span><br>
++                                    <span style="font-size: 16px; color: #0f172a; font-weight: bold;">{date_str}</span>
++                                </td>
++                            </tr>
++                            <tr>
++                                <td colspan="2" style="padding-top: 10px; border-top: 1px solid #e2e8f0;">
++                                    <span style="font-size: 13px; color: #64748b; text-transform: uppercase; font-weight: bold;">Status</span><br>
++                                    <span style="display: inline-block; background-color: #dbeafe; color: #1e40af; padding: 4px 12px; border-radius: 9999px; font-size: 14px; font-weight: bold; margin-top: 4px; text-transform: capitalize;">{order.status}</span>
++                                </td>
++                            </tr>
++                        </table>
++                    </div>
++                </td>
++            </tr>
++            
++            <!-- Items Table -->
++            <tr>
++                <td style="padding: 0 30px;">
++                    <h3 style="margin: 0 0 15px; font-size: 18px; color: #111827; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px;">Items Ordered</h3>
++                    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse: collapse;">
++                        {item_rows}
++                    </table>
++                </td>
++            </tr>
++            
++            <!-- Financial Summary -->
++            <tr>
++                <td style="padding: 30px;">
++                    <table width="100%" cellpadding="0" cellspacing="0">
++                        <tr>
++                            <td width="50%"></td>
++                            <td width="50%">
++                                <table width="100%" cellpadding="0" cellspacing="0" style="font-size: 15px; color: #4b5563;">
++                                    <tr>
++                                        <td style="padding-bottom: 10px;">Subtotal</td>
++                                        <td style="padding-bottom: 10px; text-align: right; color: #111827;">₹{subtotal:,.2f}</td>
++                                    </tr>
++                                    <tr>
++                                        <td style="padding-bottom: 10px;">Estimated GST (18%)</td>
++                                        <td style="padding-bottom: 10px; text-align: right; color: #111827;">₹{gst:,.2f}</td>
++                                    </tr>
++                                    <tr>
++                                        <td style="padding-top: 15px; padding-bottom: 5px; border-top: 2px solid #e2e8f0; font-weight: bold; font-size: 18px; color: #111827;">Grand Total</td>
++                                        <td style="padding-top: 15px; padding-bottom: 5px; border-top: 2px solid #e2e8f0; font-weight: bold; font-size: 18px; text-align: right; color: #8b5cf6;">₹{grand_total:,.2f}</td>
++                                    </tr>
++                                </table>
++                            </td>
++                        </tr>
++                    </table>
++                </td>
++            </tr>
++            
++            <!-- Call to Action -->
++            <tr>
++                <td style="padding: 10px 30px 40px; text-align: center;">
++                    <a href="{order_url}" style="display: inline-block; background-color: #8b5cf6; color: #ffffff; text-decoration: none; padding: 14px 32px; font-size: 16px; font-weight: bold; border-radius: 8px; box-shadow: 0 4px 6px rgba(139, 92, 246, 0.25);">Manage Your Order</a>
++                </td>
++            </tr>
++            
++            <!-- Footer -->
++            <tr>
++                <td style="background-color: #f8fafc; padding: 30px; text-align: center; border-top: 1px solid #e2e8f0;">
++                    <p style="margin: 0 0 10px; font-size: 14px; color: #64748b;">
++                        Need help? Reply to this email or contact our support team.
++                    </p>
++                    <p style="margin: 0; font-size: 12px; color: #94a3b8;">
++                        &copy; 2026 Tronix365. All rights reserved.<br>
++                        123 Innovation Park, Silicon Valley, India
++                    </p>
++                </td>
++            </tr>
++        </table>
++        
++    </body>
++    </html>
++    """
++    return html_template
++
++def send_order_confirmation_email(order):
++    """
++    Orchestrates the HTML generation and email dispatch for a successful order.
++    Designed to be called via FastAPI BackgroundTasks.
++    """
++    to_email = order.customer_email
++    if not to_email:
++        logger.error("Order has no customer_email. Cannot send confirmation.")
++        return False
++        
++    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
++    subject = f"Order Confirmation - #order_tronix_{order.id:04d} from Tronix365"
++    
++    # Generate the pristine HTML payload
++    html_content = generate_order_confirmation_html(order, frontend_url)
++    
++    # Dispatch using the Brevo hook
++    return send_email_via_brevo(to_email, subject, html_content, sender_name="Tronix365 Orders")
+
+========================================
+FILE: backend/main.py
+========================================
+diff --git a/backend/main.py b/backend/main.py
+index e964109..6256117 100644
+--- a/backend/main.py
++++ b/backend/main.py
+@@ -1,18 +1,19 @@
+-from fastapi import FastAPI, HTTPException, Depends
++from fastapi import FastAPI, HTTPException, Depends, BackgroundTasks
+ from fastapi.middleware.cors import CORSMiddleware
+ from typing import List
+ from sqlalchemy.orm import Session, joinedload
+ from sqlalchemy import func
+ from database import engine, Base, get_db
+-from models import Product, ProductDB, Order, OrderCreate, OrderDB, OrderItemDB, LoginRequest, ReviewDB, ReviewCreate, ReviewResponse, ProductCreate, ProductUpdate
++from models import Product, ProductDB, Order, OrderCreate, OrderDB, OrderItemDB, LoginRequest, ReviewDB, ReviewCreate, ReviewResponse, ProductCreate, ProductUpdate, ContactMessageDB
+ import requests
+ import hashlib
+ import os
+ from pydantic import BaseModel, EmailStr
+-from datetime import datetime
++from datetime import datetime, timedelta
+ from fastapi.staticfiles import StaticFiles
+ from fastapi import UploadFile, File
+ import shutil
++from email_utils import send_order_confirmation_email
+ 
+ # Ensure 'uploads' directory exists
+ UPLOAD_DIR = "uploads"
+@@ -168,8 +169,10 @@ async def get_reviews(product_id: int, db: Session = Depends(get_db)):
+     reviews = db.query(ReviewDB).filter(ReviewDB.product_id == product_id).all()
+     return reviews
+ 
++from email_utils import send_order_confirmation_email
++
+ @app.post("/orders", status_code=201)
+-async def create_order(order: OrderCreate, db: Session = Depends(get_db)):
++async def create_order(order: OrderCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+     # Create Order
+     new_order = OrderDB(
+         customer_email=order.customer_email,
+@@ -179,10 +182,17 @@ async def create_order(order: OrderCreate, db: Session = Depends(get_db)):
+     
+     # Process Items
+     for item in order.items:
+-        # Fetch product to get current price
++        # Identify Product
+         product = db.query(ProductDB).filter(ProductDB.id == item.product_id).first()
+         if not product:
+-            continue # Skip invalid products or raise error
++            raise HTTPException(status_code=400, detail=f"Product ID {item.product_id} is invalid.")
++            
++        # Enforce Stock Check Globally
++        if product.stock < item.quantity:
++            raise HTTPException(
++                status_code=400, 
++                detail=f"Insufficient stock for {product.title}. Only {product.stock} available."
++            )
+             
+         # Determine price (sale price > mrp > 0)
+         price = product.sale_price if product.sale_price else (product.price if product.price else 0.0)
+@@ -195,51 +205,31 @@ async def create_order(order: OrderCreate, db: Session = Depends(get_db)):
+         )
+         new_order.items.append(order_item)
+         
+-        # Deduct Stock (Optional but good practice)
+-        if product.stock >= item.quantity:
+-            product.stock -= item.quantity
++        # Deduct Stock globally
++        product.stock -= item.quantity
+ 
+     db.add(new_order)
+     db.commit()
+     db.refresh(new_order)
+-    print(f"Order saved: {new_order.id}")
++
++    # Dispatch Order Confirmation Email in the background
++    background_tasks.add_task(send_order_confirmation_email, new_order)
++    
++    print(f"Order saved and email queued: {new_order.id}")
+     return {"message": "Order placed successfully", "order_id": new_order.id, "status": "confirmed"}
+ 
+ 
+ @app.get("/orders", response_model=List[Order])
+ async def get_orders(skip: int = 0, limit: int = 20, db: Session = Depends(get_db)):
+-    orders = db.query(OrderDB).options(joinedload(OrderDB.items)).offset(skip).limit(limit).all()
++    orders = db.query(OrderDB).options(
++        joinedload(OrderDB.items).joinedload(OrderItemDB.product)
++    ).offset(skip).limit(limit).all()
+     return orders
+ 
+-class ContactMessage(BaseModel):
+-    name: str
+-    email: EmailStr
+-    message: str
+-
+-from email_utils import send_contact_form_notification
+-
+-@app.post("/contact")
+-async def send_contact_email(contact: ContactMessage):
+-    success = send_contact_form_notification(contact.name, contact.email, contact.message)
+-    
+-    if success:
+-        return {"message": "Message sent successfully"}
+-    else:
+-        # Fallback for demo or error
+-        # Check if it was just because of missing key (already handled in utils logging)
+-        # For UI UX, we might still return success if it's a "soft" failure like demo mode, 
+-        # but let's return error if it failed to ensure robustness.
+-        # However, checking current implementation logic:
+-        # If API key is missing, utils returns False.
+-        # If request fails, utils returns False.
+-        raise HTTPException(status_code=500, detail="Failed to send email")
+-
+ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+ from auth import verify_password, get_password_hash, create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
+ from datetime import timedelta
+-from models import UserDB, UserCreate, Token, UserLogin, UserResponse
+-
+-# ... (Previous imports stay, verify context)
++from models import UserDB, UserCreate, Token, UserLogin, UserResponse, UserUpdate
+ 
+ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+ 
+@@ -268,6 +258,40 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
+         raise credentials_exception
+     return user
+ 
++
++
++class ContactMessage(BaseModel):
++    name: str
++    email: EmailStr
++    message: str
++
++from email_utils import send_contact_form_notification
++from models import ContactMessageDB
++
++from fastapi import BackgroundTasks
++
++@app.post("/contact")
++async def send_contact_email(contact: ContactMessage, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
++    # 1. Save to Database
++    try:
++        new_msg = ContactMessageDB(
++            name=contact.name,
++            email=contact.email,
++            message=contact.message
++        )
++        db.add(new_msg)
++        db.commit()
++    except Exception as e:
++        print(f"Error saving contact message to DB: {e}")
++
++    # 2. Try sending the email in the background to prevent UI hanging
++    background_tasks.add_task(send_contact_form_notification, contact.name, contact.email, contact.message)
++
++    # 3. Always return success to the UI instantly (since it's in the DB)
++    return {"message": "Message sent successfully, queued for delivery"}
++
++
++
+ @app.post("/signup", response_model=Token)
+ async def signup(user: UserCreate, db: Session = Depends(get_db)):
+     try:
+@@ -323,11 +347,47 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session =
+ async def get_user_profile(current_user: UserDB = Depends(get_current_user)):
+     return current_user
+ 
++@app.put("/profile", response_model=UserResponse)
++async def update_user_profile(user_update: UserUpdate, current_user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
++    if user_update.full_name is not None:
++        current_user.full_name = user_update.full_name
++    if user_update.password is not None:
++        from auth import get_password_hash
++        current_user.hashed_password = get_password_hash(user_update.password)
++    if user_update.profile_picture is not None:
++        current_user.profile_picture = user_update.profile_picture
++        
++    db.commit()
++    db.refresh(current_user)
++    return current_user
++@app.get("/debug-orders")
++async def debug_orders(db: Session = Depends(get_db)):
++    orders = db.query(OrderDB).order_by(OrderDB.id.desc()).limit(3).all()
++    users = db.query(UserDB).order_by(UserDB.id.desc()).limit(3).all()
++    return {
++        "recent_orders": [{"id": o.id, "email": o.customer_email, "status": o.status} for o in orders],
++        "recent_users": [{"id": u.id, "email": u.email} for u in users]
++    }
++
+ @app.get("/orders/user", response_model=List[Order])
+ async def get_user_orders(skip: int = 0, limit: int = 20, current_user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
+     # Fetch orders based on customer_email matching the logged-in user
+-    orders = db.query(OrderDB).filter(OrderDB.customer_email == current_user.email).order_by(OrderDB.id.desc()).offset(skip).limit(limit).all()
++    orders = db.query(OrderDB).options(joinedload(OrderDB.items).joinedload(OrderItemDB.product)).filter(OrderDB.customer_email == current_user.email).order_by(OrderDB.id.desc()).offset(skip).limit(limit).all()
+     return orders
++
++@app.get("/orders/{order_id}", response_model=Order)
++async def get_order_by_id(order_id: int, current_user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
++    # Fetch specific order
++    order = db.query(OrderDB).options(joinedload(OrderDB.items).joinedload(OrderItemDB.product)).filter(OrderDB.id == order_id).first()
++    
++    if not order:
++        raise HTTPException(status_code=404, detail="Order not found")
++        
++    # Security: Ensure only the order creator (or an admin) can view it
++    if order.customer_email != current_user.email and current_user.role != "admin":
++        raise HTTPException(status_code=403, detail="Not authorized to view this order")
++        
++    return order
+     
+ # Trigger reload for env update
+ 
+@@ -465,6 +525,7 @@ async def mock_payment_process(
+ 
+ @app.post("/payment/callback")
+ async def payment_callback(
++    background_tasks: BackgroundTasks,
+     status: str = Form(...),
+     firstname: str = Form(...),
+     amount: str = Form(...),
+@@ -503,12 +564,16 @@ async def payment_callback(
+                 order.status = "confirmed"
+                 # Decrement Stock
+                 if order.items:
+-                    for item in order.items: # item is a dict here since it came from JSON column
+-                        product = db.query(ProductDB).filter(ProductDB.id == item['product_id']).first()
++                    for item in order.items:
++                        product = db.query(ProductDB).filter(ProductDB.id == item.product_id).first()
+                         if product:
+-                            product.stock -= item['quantity']
++                            product.stock -= item.quantity
+                             if product.stock < 0: product.stock = 0 # Safety check
+                 db.commit() # Commit both status and stock update
++                db.refresh(order)
++                
++                # Payment succeeds and order is confirmed. Send HTML invoice!
++                background_tasks.add_task(send_order_confirmation_email, order)
+         else:
+             order.status = "failed"
+             db.commit()
+@@ -528,11 +593,25 @@ async def get_admin_stats(db: Session = Depends(get_db)):
+     total_products = db.query(ProductDB).count()
+     total_users = db.query(UserDB).count()
+     
++    # Calculate 30-day Revenue Growth
++    now = datetime.utcnow()
++    thirty_days_ago = now - timedelta(days=30)
++    sixty_days_ago = now - timedelta(days=60)
++    
++    current_revenue = db.query(func.sum(OrderDB.total_amount)).filter(OrderDB.created_at >= thirty_days_ago).scalar() or 0.0
++    previous_revenue = db.query(func.sum(OrderDB.total_amount)).filter(OrderDB.created_at >= sixty_days_ago, OrderDB.created_at < thirty_days_ago).scalar() or 0.0
++    
++    if previous_revenue == 0:
++        growth = 100.0 if current_revenue > 0 else 0.0
++    else:
++        growth = ((current_revenue - previous_revenue) / previous_revenue) * 100.0
++    
+     return {
+         "total_revenue": total_revenue,
+         "total_orders": total_orders,
+         "total_products": total_products,
+-        "active_users": total_users
++        "active_users": total_users,
++        "growth": round(growth, 1)
+     }
+ 
+ @app.post("/upload")
+
+========================================
+FILE: backend/models.py
+========================================
+diff --git a/backend/models.py b/backend/models.py
+index 5d5670a..f5f0306 100644
+--- a/backend/models.py
++++ b/backend/models.py
+@@ -1,10 +1,10 @@
+-from sqlalchemy import Column, Integer, String, Float, ForeignKey, JSON, Boolean
++from sqlalchemy import Column, Integer, String, Float, ForeignKey, JSON, Boolean, DateTime
++from sqlalchemy.sql import func
+ from sqlalchemy.orm import relationship
+ from database import Base
+ from pydantic import BaseModel
+ from typing import List, Optional, Dict
+-
+-# SQLAlchemy Models (Database Tables)
++from datetime import datetime# SQLAlchemy Models (Database Tables)
+ class ProductDB(Base):
+     __tablename__ = "products"
+ 
+@@ -32,6 +32,7 @@ class UserDB(Base):
+     is_active = Column(Boolean, default=True)
+     is_2fa_enabled = Column(Boolean, default=False)
+     two_factor_secret = Column(String, nullable=True)
++    profile_picture = Column(String, nullable=True)
+ 
+ class OrderItemDB(Base):
+     __tablename__ = "order_items"
+@@ -52,6 +53,7 @@ class OrderDB(Base):
+     customer_email = Column(String, index=True)
+     total_amount = Column(Float)
+     status = Column(String, default="pending")
++    created_at = Column(DateTime(timezone=True), server_default=func.now())
+     
+     # Relationship to OrderItemDB
+     items = relationship("OrderItemDB", back_populates="order", cascade="all, delete-orphan")
+@@ -71,7 +73,7 @@ class ProductBase(BaseModel):
+     description: str
+     price: float
+     category: str
+-    image: str
++    image: Optional[str] = None
+     specs: Optional[Dict[str, str]] = None
+     skv: Optional[str] = None
+     mrp: Optional[float] = None
+@@ -103,6 +105,8 @@ class Product(ProductBase):
+ class OrderItem(BaseModel):
+     product_id: int
+     quantity: int
++    price_at_purchase: Optional[float] = None
++    product: Optional[Product] = None
+     class Config:
+         from_attributes = True
+ 
+@@ -114,6 +118,9 @@ class OrderCreate(BaseModel):
+ 
+ class Order(OrderCreate):
+     id: int
++    full_name: Optional[str] = None
++    txnid: Optional[str] = None
++    created_at: Optional[datetime] = None
+     class Config:
+         from_attributes = True
+ 
+@@ -128,10 +135,16 @@ class UserBase(BaseModel):
+ class UserCreate(UserBase):
+     password: str
+ 
++class UserUpdate(BaseModel):
++    full_name: Optional[str] = None
++    password: Optional[str] = None
++    profile_picture: Optional[str] = None
++
+ class UserResponse(UserBase):
+     id: int
+     role: str
+     is_active: bool
++    profile_picture: Optional[str] = None
+     
+     class Config:
+         from_attributes = True
+@@ -172,3 +185,12 @@ class ReviewResponse(ReviewCreate):
+     created_at: str
+     class Config:
+         from_attributes = True
++
++class ContactMessageDB(Base):
++    __tablename__ = "contact_messages"
++
++    id = Column(Integer, primary_key=True, index=True)
++    name = Column(String)
++    email = Column(String)
++    message = Column(String)
++    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+========================================
+FILE: backend/requirements.txt
+========================================
+diff --git a/backend/requirements.txt b/backend/requirements.txt
+index f3c048a..33000f6 100644
+--- a/backend/requirements.txt
++++ b/backend/requirements.txt
+@@ -7,3 +7,4 @@ python-dotenv
+ pydantic
+ requests
+ python-multipart
++psycopg2-binary
+
+========================================
+FILE: backend/seed.py
+========================================
+diff --git a/backend/seed.py b/backend/seed.py
+index 082e74c..e76b41f 100644
+--- a/backend/seed.py
++++ b/backend/seed.py
+@@ -22,7 +22,6 @@ def seed_data():
+     
+     products = [
+         {
+-            "id": 1,
+             "title": "Arduino Uno R3",
+             "description": "The classic microcontroller board for your projects. Reliable and easy to use.",
+             "price": 450,
+@@ -36,7 +35,6 @@ def seed_data():
+             "features": ["ATmega328P Microcontroller", "Operating Voltage: 5V", "Input Voltage (recommended): 7-12V", "Digital I/O Pins: 14"]
+         },
+         {
+-            "id": 2,
+             "title": "Raspberry Pi 4 Model B (4GB)",
+             "description": "A powerful mini-computer for IoT, media centers, and more.",
+             "price": 4500,
+@@ -50,7 +48,6 @@ def seed_data():
+             "features": ["Broadcom BCM2711, Quad core Cortex-A72 (ARM v8) 64-bit SoC @ 1.5GHz", "4GB LPDDR4-3200 SDRAM", "2.4 GHz and 5.0 GHz IEEE 802.11ac wireless"]
+         },
+         {
+-            "id": 3,
+             "title": "HC-SR04 Ultrasonic Sensor",
+             "description": "Distance measuring module utilizing ultrasonic waves.",
+             "price": 80,
+@@ -64,7 +61,6 @@ def seed_data():
+             "features": ["Power Supply :+5V DC", "Quiescent Current : <2mA", "Working Current: 15mA", "Effectual Angle: <15°", "Ranging Distance : 2cm – 400 cm/1″ – 13ft"]
+         },
+         {
+-            "id": 4,
+             "title": "ESP8266 NodeMCU",
+             "description": "WiFi enabled microcontroller for IoT applications.",
+             "price": 350,
+@@ -78,7 +74,6 @@ def seed_data():
+             "features": ["Wi-Fi Module - ESP-12E module similar to ESP-12 module but with 6 extra GPIOs", "USB - micro USB port for power, programming and debugging", "Headers - 2x 2.54mm 15-pin header with access to GPIOs, SPI, UART, ADC and power pins"]
+         },
+         {
+-            "id": 5,
+             "title": "SG90 Micro Servo Motor",
+             "description": "Tiny and lightweight with high output power. Ideal for RC projects.",
+             "price": 120,
+@@ -92,7 +87,6 @@ def seed_data():
+             "features": ["Operating Voltage: 3.0V~7.2V", "Operating Speed: 0.1sec/60degree(4.8V)", "Stall Torque: 1.2kg/cm(4.8V)", "Dead Band Width: 7usec"]
+         },
+         {
+-            "id": 6,
+             "title": "Li-Po Battery 3.7V 1000mAh",
+             "description": "High capacity rechargeable lithium polymer battery.",
+             "price": 400,
+@@ -106,7 +100,6 @@ def seed_data():
+             "features": ["Voltage: 3.7V", "Capacity: 1000mAh", "Type: Lithium Polymer", "Rechargeable: Yes"]
+         },
+         {
+-            "id": 7,
+             "title": "DHT11 Temperature & Humidity Sensor",
+             "description": "Basic digital temperature and humidity sensor.",
+             "price": 90,
+@@ -120,7 +113,6 @@ def seed_data():
+             "features": ["Supply Voltage: +5 V", "Temperature Range : 0°C to 50°C", "Humidity Range: 20% to 90%"]
+         },
+         {
+-            "id": 8,
+             "title": "OLED Display 0.96 inch",
+             "description": "I2C OLED display module for Arduino and Pi.",
+             "price": 250,
+
+========================================
+FILE: src/App.jsx
+========================================
+diff --git a/src/App.jsx b/src/App.jsx
+index 062085f..c94d25c 100644
+--- a/src/App.jsx
++++ b/src/App.jsx
+@@ -13,6 +13,8 @@ import ProductDetails from './pages/ProductDetails';
+ import Cart from './pages/Cart';
+ import Checkout from './pages/Checkout';
+ import Wishlist from './pages/Wishlist';
++import OrderDetails from './pages/OrderDetails';
++import Invoice from './pages/Invoice';
+ import { CartProvider } from './context/CartContext';
+ import { WishlistProvider } from './context/WishlistContext';
+ import { About, Contact, Terms, Privacy } from './pages/InfoPages';
+@@ -40,7 +42,7 @@ const Placeholder = ({ title }) => (
+ 
+ function App() {
+   return (
+-    <Router>
++    <Router basename="/e-commerse">
+       <CartProvider>
+         <WishlistProvider>
+           <ScrollToTop />
+@@ -59,6 +61,8 @@ function App() {
+                 <Route path="/signup" element={<Signup />} />
+                 <Route path="/login" element={<Login />} />
+                 <Route path="/dashboard" element={<UserDashboard />} />
++                <Route path="/order/:id" element={<OrderDetails />} />
++                <Route path="/invoice/:id" element={<Invoice />} />
+                 <Route path="/admin" element={<AdminDashboard />} />
+                 <Route path="/about" element={<About />} />
+                 <Route path="/contact" element={<Contact />} />
+
+========================================
+FILE: src/components/home/InfoSections.jsx
+========================================
+diff --git a/src/components/home/InfoSections.jsx b/src/components/home/InfoSections.jsx
+index f261b1c..158bc67 100644
+--- a/src/components/home/InfoSections.jsx
++++ b/src/components/home/InfoSections.jsx
+@@ -1,6 +1,6 @@
+ import React from 'react';
+ import { motion } from 'framer-motion';
+-import { MapPin, Mail, Phone, ExternalLink, Code, Cpu, Globe } from 'lucide-react';
++import { MapPin, Mail, Phone, ExternalLink, Code, Cpu, Globe, User, MessageSquare, Send, Loader2 } from 'lucide-react';
+ 
+ export const AboutSection = () => {
+     return (
+@@ -106,103 +106,171 @@ export const ContactSection = () => {
+     };
+ 
+     return (
+-        <section id="contact" className="py-20 relative">
+-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24 items-center">
++        <section id="contact" className="py-24 relative overflow-hidden bg-tronix-bg">
++            {/* Animated Canvas Background */}
++            <div className="absolute inset-0 pointer-events-none overflow-hidden">
++                <div className="absolute top-[20%] right-[10%] w-[500px] h-[500px] bg-violet-600/20 rounded-full blur-[120px] mix-blend-screen animate-pulse-slow"></div>
++                <div className="absolute bottom-[10%] left-[5%] w-[600px] h-[600px] bg-blue-600/10 rounded-full blur-[150px] mix-blend-screen animate-pulse-slow" style={{ animationDelay: '2s' }}></div>
++            </div>
++
++            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
++                <div className="grid grid-cols-1 lg:grid-cols-5 gap-12 lg:gap-8 items-center">
+ 
+-                    {/* Contact Info */}
++                    {/* Contact Info Left Column */}
+                     <motion.div
+                         initial={{ opacity: 0, x: -50 }}
+                         whileInView={{ opacity: 1, x: 0 }}
+                         viewport={{ once: true }}
++                        transition={{ duration: 0.6 }}
++                        className="lg:col-span-2 space-y-8"
+                     >
+-                        <h2 className="text-3xl md:text-5xl font-display font-bold text-white mb-6">Let's Build Together</h2>
+-                        <p className="text-xl text-gray-400 mb-8">
+-                            Have a question about a component? Need a bulk quote? Or just want to show off your latest project? We'd love to hear from you.
+-                        </p>
++                        <div>
++                            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 text-sm font-bold tracking-wide uppercase mb-6">
++                                <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse"></span>
++                                Support & Inquiry
++                            </div>
++                            <h2 className="text-4xl md:text-5xl font-display font-extrabold text-white mb-6 leading-tight">
++                                Let's Build <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-fuchsia-400">Together.</span>
++                            </h2>
++                            <p className="text-lg text-gray-400 leading-relaxed">
++                                Have a question about a component? Need a bulk quote? Or just want to show off your latest project? Our engineering team is ready to help.
++                            </p>
++                        </div>
+ 
+-                        <div className="space-y-6">
++                        <div className="space-y-6 pt-6 border-t border-white/5">
+                             {[
+-                                { icon: <MapPin />, text: "123 Innovation Park, Silicon Valley, India" },
+-                                { icon: <Mail />, text: "support@tronix365.com" },
+-                                { icon: <Phone />, text: "+91 98765 43210" }
++                                { icon: <MapPin size={24} />, text: "123 Innovation Park, Silicon Valley, India", label: "Headquarters" },
++                                { icon: <Mail size={24} />, text: "support@tronix365.com", label: "Email Support" },
++                                { icon: <Phone size={24} />, text: "+91 98765 43210", label: "Sales & Inquiries" }
+                             ].map((item, index) => (
+-                                <div key={index} className="flex items-center gap-4 text-gray-300">
+-                                    <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center text-tronix-primary shrink-0">
++                                <motion.div
++                                    key={index}
++                                    whileHover={{ x: 5 }}
++                                    className="flex items-start gap-5 group cursor-default"
++                                >
++                                    <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-tronix-primary shrink-0 border border-white/5 group-hover:border-violet-500/30 group-hover:bg-violet-500/10 transition-all shadow-lg">
+                                         {item.icon}
+                                     </div>
+-                                    <span className="text-lg">{item.text}</span>
+-                                </div>
++                                    <div>
++                                        <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">{item.label}</p>
++                                        <p className="text-base text-gray-200 font-medium">{item.text}</p>
++                                    </div>
++                                </motion.div>
+                             ))}
+                         </div>
+                     </motion.div>
+ 
+-                    {/* Contact Form */}
++                    {/* Premium Neo-Glass Contact Form */}
+                     <motion.div
+-                        initial={{ opacity: 0, x: 50 }}
+-                        whileInView={{ opacity: 1, x: 0 }}
++                        initial={{ opacity: 0, y: 50 }}
++                        whileInView={{ opacity: 1, y: 0 }}
+                         viewport={{ once: true }}
+-                        className="bg-tronix-card/50 backdrop-blur-xl border border-white/10 p-8 rounded-3xl shadow-2xl"
++                        transition={{ duration: 0.6, delay: 0.2 }}
++                        className="lg:col-span-3 relative"
+                     >
+-                        <form onSubmit={handleSubmit} className="space-y-6">
+-                            <div className="grid grid-cols-2 gap-6">
+-                                <div>
+-                                    <label className="block text-sm text-gray-400 mb-2">Name</label>
+-                                    <input
+-                                        type="text"
+-                                        name="name"
+-                                        value={formData.name}
+-                                        onChange={handleChange}
+-                                        required
+-                                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-tronix-primary focus:ring-1 focus:ring-tronix-primary outline-none transition-all"
+-                                        placeholder="tronix"
+-                                    />
++                        {/* Glowing Border Wrap */}
++                        <div className="absolute -inset-0.5 bg-gradient-to-br from-violet-500/30 via-transparent to-blue-500/30 rounded-[2rem] blur opacity-50"></div>
++
++                        <div className="bg-[#0a0a0f]/80 backdrop-blur-2xl border border-white/10 p-8 sm:p-10 rounded-[2rem] shadow-[0_8px_32px_rgba(0,0,0,0.5)] relative">
++                            <form onSubmit={handleSubmit} className="space-y-6">
++                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
++                                    {/* Name Input */}
++                                    <div className="relative group">
++                                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Your Name</label>
++                                        <div className="relative">
++                                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-500 group-focus-within:text-violet-400 transition-colors">
++                                                <User size={18} />
++                                            </div>
++                                            <input
++                                                type="text"
++                                                name="name"
++                                                value={formData.name}
++                                                onChange={handleChange}
++                                                required
++                                                className="w-full bg-black/40 border border-white/10 rounded-xl pl-11 pr-4 py-3.5 text-white placeholder-gray-600 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 focus:bg-violet-500/5 outline-none transition-all shadow-inner"
++                                                placeholder="John Doe"
++                                            />
++                                        </div>
++                                    </div>
++
++                                    {/* Email Input */}
++                                    <div className="relative group">
++                                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Email Address</label>
++                                        <div className="relative">
++                                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-500 group-focus-within:text-violet-400 transition-colors">
++                                                <Mail size={18} />
++                                            </div>
++                                            <input
++                                                type="email"
++                                                name="email"
++                                                value={formData.email}
++                                                onChange={handleChange}
++                                                required
++                                                className="w-full bg-black/40 border border-white/10 rounded-xl pl-11 pr-4 py-3.5 text-white placeholder-gray-600 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 focus:bg-violet-500/5 outline-none transition-all shadow-inner"
++                                                placeholder="john@example.com"
++                                            />
++                                        </div>
++                                    </div>
+                                 </div>
+-                                <div>
+-                                    <label className="block text-sm text-gray-400 mb-2">Email</label>
+-                                    <input
+-                                        type="email"
+-                                        name="email"
+-                                        value={formData.email}
++
++                                {/* Subject Input */}
++                                <div className="relative group">
++                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Subject</label>
++                                    <div className="relative">
++                                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-500 group-focus-within:text-violet-400 transition-colors">
++                                            <MessageSquare size={18} />
++                                        </div>
++                                        <input
++                                            type="text"
++                                            name="subject"
++                                            value={formData.subject}
++                                            onChange={handleChange}
++                                            required
++                                            className="w-full bg-black/40 border border-white/10 rounded-xl pl-11 pr-4 py-3.5 text-white placeholder-gray-600 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 focus:bg-violet-500/5 outline-none transition-all shadow-inner"
++                                            placeholder="What is this regarding?"
++                                        />
++                                    </div>
++                                </div>
++
++                                {/* Message Input */}
++                                <div className="relative group">
++                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Message</label>
++                                    <textarea
++                                        rows={5}
++                                        name="message"
++                                        value={formData.message}
+                                         onChange={handleChange}
+                                         required
+-                                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-tronix-primary focus:ring-1 focus:ring-tronix-primary outline-none transition-all"
+-                                        placeholder="abc@example"
++                                        className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-4 text-white placeholder-gray-600 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 focus:bg-violet-500/5 outline-none transition-all resize-none shadow-inner"
++                                        placeholder="Tell us about your project, issue, or bulk order requirements..."
+                                     />
+                                 </div>
+-                            </div>
+-                            <div>
+-                                <label className="block text-sm text-gray-400 mb-2">Subject</label>
+-                                <input
+-                                    type="text"
+-                                    name="subject"
+-                                    value={formData.subject}
+-                                    onChange={handleChange}
+-                                    required
+-                                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-tronix-primary focus:ring-1 focus:ring-tronix-primary outline-none transition-all"
+-                                    placeholder="Project Inquiry"
+-                                />
+-                            </div>
+-                            <div>
+-                                <label className="block text-sm text-gray-400 mb-2">Message</label>
+-                                <textarea
+-                                    rows={4}
+-                                    name="message"
+-                                    value={formData.message}
+-                                    onChange={handleChange}
+-                                    required
+-                                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-tronix-primary focus:ring-1 focus:ring-tronix-primary outline-none transition-all"
+-                                    placeholder="Tell us about your project..."
+-                                />
+-                            </div>
+-                            <button
+-                                type="submit"
+-                                disabled={loading}
+-                                className="w-full bg-tronix-primary hover:bg-violet-600 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-violet-500/20 hover:shadow-violet-500/40 transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+-                            >
+-                                {loading ? 'Sending...' : 'Send Message'}
+-                            </button>
+-                        </form>
++
++                                {/* Submit Button */}
++                                <motion.button
++                                    whileHover={{ scale: 1.02 }}
++                                    whileTap={{ scale: 0.98 }}
++                                    type="submit"
++                                    disabled={loading}
++                                    className="w-full relative overflow-hidden group bg-tronix-primary text-white font-bold text-lg py-4 rounded-xl transition-all shadow-[0_0_20px_rgba(139,92,246,0.3)] hover:shadow-[0_0_30px_rgba(139,92,246,0.6)] disabled:opacity-70 disabled:cursor-not-allowed"
++                                >
++                                    <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
++                                    <div className="flex items-center justify-center gap-2 relative z-10">
++                                        {loading ? (
++                                            <>
++                                                <Loader2 size={20} className="animate-spin" />
++                                                Processing...
++                                            </>
++                                        ) : (
++                                            <>
++                                                <Send size={20} />
++                                                Send Transmission
++                                            </>
++                                        )}
++                                    </div>
++                                </motion.button>
++                            </form>
++                        </div>
+                     </motion.div>
+                 </div>
+             </div>
+
+========================================
+FILE: src/components/layout/Footer.jsx
+========================================
+diff --git a/src/components/layout/Footer.jsx b/src/components/layout/Footer.jsx
+index 5256b90..7b89deb 100644
+--- a/src/components/layout/Footer.jsx
++++ b/src/components/layout/Footer.jsx
+@@ -1,111 +1,151 @@
++import React from 'react';
+ import { Link } from 'react-router-dom';
+-import { Mail, Phone, MapPin, Facebook, Twitter, Instagram, Linkedin, ShieldCheck, Truck, CreditCard } from 'lucide-react';
++import { Mail, Phone, MapPin, ChevronRight, Award } from 'lucide-react';
+ 
+ const Footer = () => {
+     return (
+-        <footer className="bg-tronix-dark border-t border-white/5 pt-16 pb-8">
+-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
++        <footer className="relative bg-tronix-dark/95 border-t border-white/5 pt-20 pb-10 overflow-hidden mt-12">
++            {/* Background Glow Effects */}
++            <div className="absolute top-0 left-1/4 w-96 h-96 bg-tronix-primary/5 rounded-full blur-[120px] -translate-y-1/2 pointer-events-none"></div>
++            <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-violet-600/5 rounded-full blur-[120px] translate-y-1/2 pointer-events-none"></div>
+ 
+-                    {/* Brand & About */}
+-                    <div className="space-y-4">
+-                        <div className="flex items-center gap-2">
+-                            <div className="w-8 h-8 bg-tronix-primary rounded flex items-center justify-center">
+-                                <span className="text-white font-display font-bold text-lg">T</span>
++            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
++                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
++
++                    {/* Brand & Identity */}
++                    <div className="space-y-6 lg:col-span-1 border-r-0 lg:border-r border-white/5 lg:pr-8">
++                        <div>
++                            <div className="flex items-center gap-2 mb-2">
++                                <div className="w-10 h-10 bg-gradient-to-br from-tronix-primary to-violet-600 rounded-xl flex items-center justify-center shadow-lg shadow-tronix-primary/20">
++                                    <span className="text-white font-display font-bold text-2xl">T</span>
++                                </div>
++                                <span className="font-display font-bold text-2xl tracking-wider text-white">
++                                    TRONIX<span className="text-transparent bg-clip-text bg-gradient-to-r from-tronix-primary to-violet-400">365</span>
++                                </span>
+                             </div>
+-                            <span className="font-display font-bold text-xl tracking-wider text-white">
+-                                TRONIX<span className="text-tronix-primary">365</span>
++                            <p className="text-transparent bg-clip-text bg-gradient-to-r from-gray-300 to-gray-500 text-sm font-medium tracking-wide leading-relaxed">
++                                Transforming Innovative Ideas Into Reality
++                            </p>
++                        </div>
++
++                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 backdrop-blur-md">
++                            <Award size={14} className="text-tronix-accent" />
++                            <span className="text-tronix-accent text-xs font-bold tracking-widest uppercase">
++                                Since 2017
+                             </span>
+                         </div>
+-                        <p className="text-tronix-muted text-sm leading-relaxed">
+-                            Your one-stop destination for high-quality electronics, components, and development boards. Empowering makers and engineers since 2024.
+-                        </p>
++
++                        {/* Social Links */}
+                         <div className="flex gap-4 pt-2">
+-                            <a href="#" className="text-gray-400 hover:text-tronix-primary transition-colors"><Facebook size={20} /></a>
+-                            <a href="#" className="text-gray-400 hover:text-tronix-primary transition-colors"><Twitter size={20} /></a>
+-                            <a href="#" className="text-gray-400 hover:text-tronix-primary transition-colors"><Instagram size={20} /></a>
+-                            <a href="#" className="text-gray-400 hover:text-tronix-primary transition-colors"><Linkedin size={20} /></a>
++                            {/* Instagram */}
++                            <a href="https://www.instagram.com/tronix365?utm_source=qr&igsh=MXBpODJkcWc3d3Vveg==" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-gray-400 hover:bg-[#E1306C]/20 hover:text-[#E1306C] hover:-translate-y-1 box-border border border-white/5 hover:border-[#E1306C]/50 transition-all duration-300 group">
++                                <svg className="w-5 h-5 group-hover:animate-pulse" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
++                                    <path fill="currentColor" fillRule="evenodd" d="M3 8a5 5 0 0 1 5-5h8a5 5 0 0 1 5 5v8a5 5 0 0 1-5 5H8a5 5 0 0 1-5-5V8Zm5-3a3 3 0 0 0-3 3v8a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3V8a3 3 0 0 0-3-3H8Zm7.597 2.214a1 1 0 0 1 1-1h.01a1 1 0 1 1 0 2h-.01a1 1 0 0 1-1-1ZM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm-5 3a5 5 0 1 1 10 0 5 5 0 0 1-10 0Z" clipRule="evenodd" />
++                                </svg>
++                            </a>
++                            {/* WhatsApp */}
++                            <a href="https://wa.me/8830153805" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-gray-400 hover:bg-[#25D366]/20 hover:text-[#25D366] hover:-translate-y-1 box-border border border-white/5 hover:border-[#25D366]/50 transition-all duration-300 group">
++                                <svg className="w-5 h-5 group-hover:animate-pulse" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
++                                    <path fillRule="evenodd" d="M12 2C6.48 2 2 6.48 2 12c0 1.82.48 3.53 1.31 5.02L2 22l5.12-1.31C8.58 21.48 10.24 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm0 18c-1.55 0-3.02-.42-4.31-1.16l-.31-.18-3.21.82.86-3.13-.19-.32C4.34 14.88 3.96 13.47 3.96 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8zm4.53-6.04c-.25-.12-1.47-.72-1.69-.81-.23-.08-.39-.12-.56.12-.17.25-.64.81-.78.97-.14.17-.29.19-.54.06-.25-.12-1.05-.39-1.99-1.23-.74-.66-1.23-1.47-1.38-1.72-.14-.25-.02-.38.11-.51.11-.11.25-.29.37-.43.12-.14.16-.25.25-.41.08-.17.04-.31-.02-.43-.06-.12-.56-1.34-.76-1.84-.2-.48-.41-.42-.56-.43h-.48c-.17 0-.43.06-.66.31-.22.25-.87.85-.87 2.07 0 1.22.89 2.39 1.01 2.56.12.17 1.75 2.67 4.23 3.74.59.26 1.05.41 1.41.52.59.19 1.13.16 1.56.1.48-.07 1.47-.6 1.67-1.18.21-.58.21-1.07.14-1.18-.07-.11-.23-.18-.48-.3z" clipRule="evenodd" />
++                                </svg>
++                            </a>
++                            {/* LinkedIn */}
++                            <a href="https://www.linkedin.com/company/tronix365/" target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-gray-400 hover:bg-[#0A66C2]/20 hover:text-[#0A66C2] hover:-translate-y-1 box-border border border-white/5 hover:border-[#0A66C2]/50 transition-all duration-300 group">
++                                <svg className="w-5 h-5 group-hover:animate-pulse" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
++                                    <path fillRule="evenodd" d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" clipRule="evenodd" />
++                                </svg>
++                            </a>
+                         </div>
+                     </div>
+ 
+-                    {/* Quick Links */}
++                    {/* Quick Explore */}
+                     <div>
+-                        <h3 className="text-white font-display font-bold mb-6">Quick Links</h3>
++                        <h3 className="text-white font-display font-bold mb-6 text-lg relative inline-block">
++                            Explore
++                            <span className="absolute -bottom-2 left-0 w-1/2 h-0.5 bg-tronix-primary rounded-full"></span>
++                        </h3>
+                         <ul className="space-y-3">
+-                            <li><a href="/#about" className="text-tronix-muted hover:text-tronix-primary text-sm transition-colors">About Us</a></li>
+-                            <li><a href="/#contact" className="text-tronix-muted hover:text-tronix-primary text-sm transition-colors">Contact</a></li>
+-                            <li><Link to="/terms" className="text-tronix-muted hover:text-tronix-primary text-sm transition-colors">Terms & Conditions</Link></li>
+-                            <li><Link to="/privacy" className="text-tronix-muted hover:text-tronix-primary text-sm transition-colors">Privacy Policy</Link></li>
++                            <li><a href="/#about" className="group flex items-center text-gray-400 hover:text-white text-sm transition-colors"><ChevronRight size={16} className="text-tronix-primary opacity-0 group-hover:opacity-100 -ml-4 group-hover:mx-1 transition-all" /> About Us</a></li>
++                            <li><a href="/#products" className="group flex items-center text-gray-400 hover:text-white text-sm transition-colors"><ChevronRight size={16} className="text-tronix-primary opacity-0 group-hover:opacity-100 -ml-4 group-hover:mx-1 transition-all" /> Shop Products</a></li>
++                            <li><a href="/#contact" className="group flex items-center text-gray-400 hover:text-white text-sm transition-colors"><ChevronRight size={16} className="text-tronix-primary opacity-0 group-hover:opacity-100 -ml-4 group-hover:mx-1 transition-all" /> Contact Us</a></li>
++                            <li><Link to="/terms" className="group flex items-center text-gray-400 hover:text-white text-sm transition-colors"><ChevronRight size={16} className="text-tronix-primary opacity-0 group-hover:opacity-100 -ml-4 group-hover:mx-1 transition-all" /> Terms & Conditions</Link></li>
+                         </ul>
+                     </div>
+ 
+-                    {/* Contact Info */}
++                    {/* Direct Contact */}
+                     <div>
+-                        <h3 className="text-white font-display font-bold mb-6">Contact Us</h3>
+-                        <ul className="space-y-4">
+-                            <li className="flex items-start gap-3 text-tronix-muted text-sm">
+-                                <MapPin size={18} className="text-tronix-primary shrink-0 mt-0.5" />
+-                                <span>123 Tech Park, Innovation Street,<br />Silicon Valley, India</span>
++                        <h3 className="text-white font-display font-bold mb-6 text-lg relative inline-block">
++                            Contact Info
++                            <span className="absolute -bottom-2 left-0 w-1/2 h-0.5 bg-tronix-accent rounded-full"></span>
++                        </h3>
++                        <ul className="space-y-5">
++                            <li>
++                                <a href="mailto:admin@tronix365.in" className="flex items-start gap-4 group">
++                                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 group-hover:bg-tronix-primary/20 group-hover:border-tronix-primary/50 transition-all shrink-0">
++                                        <Mail size={18} className="text-gray-400 group-hover:text-tronix-primary transition-colors" />
++                                    </div>
++                                    <div>
++                                        <p className="text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-0.5">Drop an Email</p>
++                                        <p className="text-gray-300 group-hover:text-white text-sm font-medium transition-colors">admin@tronix365.in</p>
++                                    </div>
++                                </a>
+                             </li>
+-                            <li className="flex items-center gap-3 text-tronix-muted text-sm">
+-                                <Phone size={18} className="text-tronix-primary shrink-0" />
+-                                <span>+91 98765 43210</span>
+-                            </li>
+-                            <li className="flex items-center gap-3 text-tronix-muted text-sm">
+-                                <Mail size={18} className="text-tronix-primary shrink-0" />
+-                                <span>support@tronix365.com</span>
++                            <li>
++                                <a href="tel:+918830153805" className="flex items-start gap-4 group">
++                                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10 group-hover:bg-tronix-accent/20 group-hover:border-tronix-accent/50 transition-all shrink-0">
++                                        <Phone size={18} className="text-gray-400 group-hover:text-tronix-accent transition-colors" />
++                                    </div>
++                                    <div>
++                                        <p className="text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-0.5">Call Us Now</p>
++                                        <p className="text-gray-300 group-hover:text-white text-sm font-medium transition-colors">+91 88301 53805</p>
++                                    </div>
++                                </a>
+                             </li>
+                         </ul>
+                     </div>
+ 
+-                    {/* Newsletter */}
++                    {/* Address & Leadership */}
+                     <div>
+-                        <h3 className="text-white font-display font-bold mb-6">Stay Updated</h3>
+-                        <p className="text-tronix-muted text-xs mb-4">Subscribe for latest products and offers.</p>
+-                        <form className="space-y-3">
+-                            <input
+-                                type="email"
+-                                placeholder="Enter your email"
+-                                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-tronix-primary transition-colors"
+-                            />
+-                            <button className="w-full bg-tronix-primary hover:bg-blue-600 text-white font-semibold py-2.5 rounded-lg text-sm transition-colors">
+-                                Subscribe
+-                            </button>
+-                        </form>
+-                    </div>
+-                </div>
++                        <h3 className="text-white font-display font-bold mb-6 text-lg relative inline-block">
++                            Headquarters
++                            <span className="absolute -bottom-2 left-0 w-1/2 h-0.5 bg-violet-500 rounded-full"></span>
++                        </h3>
++                        <a href="https://maps.app.goo.gl/V65P7a6YWds7MqNN6" target="_blank" rel="noopener noreferrer" className="group block mb-6">
++                            <div className="flex items-start gap-3 text-gray-400 group-hover:text-gray-200 transition-colors text-sm leading-relaxed mb-3">
++                                <MapPin size={20} className="text-violet-400 shrink-0 mt-0.5" />
++                                <div>
++                                    <span className="block font-medium text-gray-300 group-hover:text-white mb-1">Tronix365</span>
++                                    Near Datta Mandir, Sinhgad College Campus, Vadgaon Budruk,<br />Pune, Maharashtra 411041
++                                </div>
++                            </div>
++                            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-violet-400 group-hover:text-violet-300 uppercase tracking-wider ml-8 bg-violet-500/10 px-3 py-1 rounded-md border border-violet-500/20 shadow-sm transition-all group-hover:shadow-violet-500/20">
++                                <MapPin size={12} /> View on Google Maps
++                            </span>
++                        </a>
+ 
+-                {/* Trust Badges */}
+-                <div className="border-t border-white/5 pt-8 mb-8">
+-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+-                        <div className="flex items-center justify-center gap-3 text-tronix-muted">
+-                            <ShieldCheck className="text-tronix-accent" size={24} />
+-                            <div className="text-left">
+-                                <p className="text-white text-sm font-semibold">Secure Payment</p>
+-                                <p className="text-xs">100% Protected</p>
++                        <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center gap-4 hover:border-white/20 hover:bg-white/10 transition-all cursor-default">
++                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-tronix-primary to-violet-600 flex items-center justify-center text-lg font-bold text-white shadow-lg shrink-0">
++                                M
+                             </div>
+-                        </div>
+-                        <div className="flex items-center justify-center gap-3 text-tronix-muted">
+-                            <Truck className="text-tronix-accent" size={24} />
+-                            <div className="text-left">
+-                                <p className="text-white text-sm font-semibold">Fast Shipping</p>
+-                                <p className="text-xs">Pan India Delivery</p>
+-                            </div>
+-                        </div>
+-                        <div className="flex items-center justify-center gap-3 text-tronix-muted">
+-                            <CreditCard className="text-tronix-accent" size={24} />
+-                            <div className="text-left">
+-                                <p className="text-white text-sm font-semibold">Easy Returns</p>
+-                                <p className="text-xs">7 Days Policy</p>
++                            <div>
++                                <p className="text-[10px] text-tronix-primary uppercase tracking-widest font-bold mb-0.5">Founder & CEO</p>
++                                <p className="text-white font-medium text-sm">Mangesh Sanjay Adsule</p>
+                             </div>
+                         </div>
+                     </div>
++
+                 </div>
+ 
+-                <div className="border-t border-white/5 pt-8 text-center">
+-                    <p className="text-tronix-muted text-xs">
+-                        © 2024 Tronix365. All rights reserved.
++                {/* Bottom Bar */}
++                <div className="border-t border-white/10 pt-6 flex flex-col md:flex-row items-center justify-between gap-4">
++                    <p className="text-gray-500 text-xs font-medium text-center md:text-left">
++                        &copy; 2025 Tronix365. All rights reserved. Prepared with ❤️ for developers and makers.
+                     </p>
++                    <div className="flex items-center gap-4 text-xs font-medium text-gray-500">
++                        <Link to="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
++                        <span className="w-1 h-1 bg-gray-600 rounded-full"></span>
++                        <Link to="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
++                    </div>
+                 </div>
+             </div>
+         </footer>
+
+========================================
+FILE: src/components/layout/Navbar.jsx
+========================================
+diff --git a/src/components/layout/Navbar.jsx b/src/components/layout/Navbar.jsx
+index 39b654e..1520863 100644
+--- a/src/components/layout/Navbar.jsx
++++ b/src/components/layout/Navbar.jsx
+@@ -38,8 +38,10 @@ const Navbar = () => {
+         localStorage.removeItem('tronix_token');
+         localStorage.removeItem('tronix_user');
+         localStorage.removeItem('user'); // Clean up old key
++        localStorage.removeItem('tronix365_cart');
++        localStorage.removeItem('tronix365_wishlist');
+         setUser(null);
+-        window.location.reload(); // Force refresh to clear state
++        window.location.href = '/login'; // Force strict reload & redirect
+     };
+ 
+     return (
+@@ -88,7 +90,7 @@ const Navbar = () => {
+                                 <div className="flex items-center gap-2">
+                                     <Link to={user.role === 'admin' ? '/admin' : '/dashboard'} className="flex items-center gap-2 bg-white/5 hover:bg-white/10 px-4 py-2 rounded-full border border-white/10 transition-all">
+                                         <User size={18} className="text-tronix-accent" />
+-                                        <span className="text-sm">{user.name || user.full_name?.split(' ')[0] || 'User'}</span>
++                                        <span className="text-sm">{user.full_name || user.name || 'User'}</span>
+                                     </Link>
+                                     <button
+                                         onClick={handleLogout}
+@@ -136,7 +138,7 @@ const Navbar = () => {
+                                     <div className="pt-4 flex items-center justify-between border-t border-white/5 mt-2">
+                                         <div className="flex items-center gap-3">
+                                             <Link to={user.role === 'admin' ? '/admin' : '/dashboard'} className="flex items-center gap-2 text-tronix-primary font-medium">
+-                                                <User size={20} /> {user.name || user.full_name?.split(' ')[0] || 'User'}
++                                                <User size={20} /> {user.full_name || user.name || 'User'}
+                                             </Link>
+                                             <button onClick={handleLogout} className="text-gray-400 hover:text-red-500">
+                                                 <LogOut size={20} />
+
+========================================
+FILE: src/index.css
+========================================
+diff --git a/src/index.css b/src/index.css
+index 13de6a9..beb01ba 100644
+--- a/src/index.css
++++ b/src/index.css
+@@ -32,4 +32,10 @@
+   body {
+     @apply bg-tronix-bg text-tronix-text font-sans antialiased selection:bg-tronix-primary selection:text-white;
+   }
++}
++
++@keyframes shimmer {
++  100% {
++    transform: translateX(100%);
++  }
+ }
+\ No newline at end of file
+
+========================================
+FILE: src/pages/AdminDashboard.jsx
+========================================
+diff --git a/src/pages/AdminDashboard.jsx b/src/pages/AdminDashboard.jsx
+index ea8195b..f93ec84 100644
+--- a/src/pages/AdminDashboard.jsx
++++ b/src/pages/AdminDashboard.jsx
+@@ -1,16 +1,40 @@
+ import React, { useState, useEffect } from 'react';
+ import toast from 'react-hot-toast';
+-import { Package, Users, DollarSign, TrendingUp, Plus, Image as ImageIcon, Search, X, Check, Edit, Trash2, Loader } from 'lucide-react';
++import { Package, Users, DollarSign, TrendingUp, Plus, Image as ImageIcon, Search, X, Check, Edit, Trash2, Loader, Tag, Info, List, Save, Boxes, Calendar, CreditCard, Clock, MapPin, User, Truck } from 'lucide-react';
+ import { products as mockProducts } from '../data/mockData';
++import { motion, AnimatePresence } from 'framer-motion';
+ import client from '../api/client';
+ 
+ const AdminDashboard = () => {
+     const [activeTab, setActiveTab] = useState('products');
+-    const [stats, setStats] = useState({ total_revenue: 0, total_orders: 0, total_products: 0, active_users: 0 });
++    const [stats, setStats] = useState({ total_revenue: 0, total_orders: 0, total_products: 0, active_users: 0, growth: 0 });
+ 
+     // Data States
+     const [products, setProducts] = useState([]);
+     const [orders, setOrders] = useState([]);
++    const [selectedOrder, setSelectedOrder] = useState(null);
++
++    // Search & Filter State
++    const [searchQuery, setSearchQuery] = useState('');
++    const [orderStatusFilter, setOrderStatusFilter] = useState('All');
++
++    const filteredProducts = products.filter(p =>
++        (p.title && p.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
++        (p.skv && p.skv.toLowerCase().includes(searchQuery.toLowerCase())) ||
++        (p.category && p.category.toLowerCase().includes(searchQuery.toLowerCase()))
++    );
++
++    const filteredOrders = orders.filter(o => {
++        const matchesSearch = (o.id && o.id.toString().includes(searchQuery.toLowerCase())) ||
++            (o.customer_email && o.customer_email.toLowerCase().includes(searchQuery.toLowerCase())) ||
++            (o.status && o.status.toLowerCase().includes(searchQuery.toLowerCase())) ||
++            (o.full_name && o.full_name.toLowerCase().includes(searchQuery.toLowerCase()));
++
++        const matchesStatus = orderStatusFilter === 'All' ||
++            (o.status && o.status.toLowerCase() === orderStatusFilter.toLowerCase());
++
++        return matchesSearch && matchesStatus;
++    });
+ 
+     // Pagination States
+     const [productsPage, setProductsPage] = useState(1);
+@@ -84,7 +108,7 @@ const AdminDashboard = () => {
+     const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+     const [editingProduct, setEditingProduct] = useState(null); // Track if editing
+     const [newProduct, setNewProduct] = useState({
+-        title: '', category: 'Development Boards', price: '', description: '', image: ''
++        title: '', category: 'Development Boards', price: '', mrp: '', description: '', image: '', features: ''
+     });
+     const [uploading, setUploading] = useState(false);
+     const fileInputRef = React.useRef(null);
+@@ -95,32 +119,40 @@ const AdminDashboard = () => {
+ 
+     const handleOpenAddModal = () => {
+         setEditingProduct(null);
+-        setNewProduct({ title: '', category: 'Development Boards', price: '', description: '', image: '' });
++        setNewProduct({ title: '', category: 'Development Boards', price: '', mrp: '', description: '', image: '', features: '' });
+         setIsAddProductOpen(true);
+     };
+ 
+     const handleOpenEditModal = (product) => {
+         setEditingProduct(product);
+-        setNewProduct({ ...product }); // Pre-fill form
++        setNewProduct({
++            ...product,
++            features: product.features && Array.isArray(product.features) ? product.features.join('\n') : ''
++        }); // Pre-fill form
+         setIsAddProductOpen(true);
+     };
+ 
+     const handleSaveProduct = async (e) => {
+         e.preventDefault();
+         try {
++            const payload = { ...newProduct };
++            if (typeof payload.features === 'string') {
++                payload.features = payload.features.split('\n').map(f => f.trim()).filter(f => f);
++            }
++
+             if (editingProduct) {
+                 // Update existing
+-                const res = await client.put(`/products/${editingProduct.id}`, newProduct);
++                const res = await client.put(`/products/${editingProduct.id}`, payload);
+                 setProducts(products.map(p => p.id === editingProduct.id ? res.data : p));
+                 toast.success('Product updated successfully');
+             } else {
+                 // Create new
+-                const res = await client.post('/products', newProduct);
++                const res = await client.post('/products', payload);
+                 setProducts([res.data, ...products]);
+                 toast.success('Product added successfully');
+             }
+             setIsAddProductOpen(false);
+-            setNewProduct({ title: '', category: 'Development Boards', price: '', description: '', image: '' });
++            setNewProduct({ title: '', category: 'Development Boards', price: '', mrp: '', description: '', image: '', features: '' });
+         } catch (error) {
+             console.error("Save product error:", error);
+             toast.error('Failed to save product');
+@@ -207,7 +239,12 @@ const AdminDashboard = () => {
+                         { title: 'Total Revenue', value: `₹${stats.total_revenue.toLocaleString()}`, icon: DollarSign, color: 'text-emerald-500' },
+                         { title: 'Total Orders', value: stats.total_orders, icon: Package, color: 'text-violet-500' },
+                         { title: 'Active Users', value: stats.active_users, icon: Users, color: 'text-purple-500' },
+-                        { title: 'Growth', value: '+24.5%', icon: TrendingUp, color: 'text-orange-500' },
++                        {
++                            title: 'Monthly Growth',
++                            value: `${stats.growth > 0 ? '+' : ''}${stats.growth || 0}%`,
++                            icon: TrendingUp,
++                            color: stats.growth >= 0 ? 'text-emerald-500' : 'text-red-500'
++                        },
+                     ].map((stat, i) => (
+                         <div key={i} className="bg-tronix-card border border-white/5 p-6 rounded-xl">
+                             <div className="flex items-center justify-between mb-4">
+@@ -241,8 +278,10 @@ const AdminDashboard = () => {
+                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+                             <input
+                                 type="text"
+-                                placeholder="Search..."
+-                                className="bg-black/20 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white focus:outline-none focus:border-tronix-primary"
++                                placeholder="Search products or orders..."
++                                value={searchQuery}
++                                onChange={(e) => setSearchQuery(e.target.value)}
++                                className="bg-black/20 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white focus:outline-none focus:border-tronix-primary w-64 transition-all focus:w-72"
+                             />
+                         </div>
+                     </div>
+@@ -262,7 +301,7 @@ const AdminDashboard = () => {
+                                         </tr>
+                                     </thead>
+                                     <tbody className="divide-y divide-white/5">
+-                                        {products.map((item) => (
++                                        {filteredProducts.map((item) => (
+                                             <tr key={item.id} className="hover:bg-white/5 transition-colors">
+                                                 <td className="px-6 py-4">
+                                                     <div className="flex items-center gap-3">
+@@ -277,7 +316,11 @@ const AdminDashboard = () => {
+                                                 <td className="px-6 py-4 text-white">₹{item.sale_price || item.price}</td>
+                                                 <td className="px-6 py-4">{item.stock}</td>
+                                                 <td className="px-6 py-4">
+-                                                    <span className="bg-emerald-500/10 text-emerald-500 px-3 py-1 rounded-full text-xs">In Stock</span>
++                                                    {item.stock > 0 ? (
++                                                        <span className="bg-emerald-500/10 text-emerald-500 px-3 py-1 rounded-full text-xs font-medium">In Stock</span>
++                                                    ) : (
++                                                        <span className="bg-red-500/10 text-red-400 px-3 py-1 rounded-full text-xs font-medium">Out of Stock</span>
++                                                    )}
+                                                 </td>
+                                                 <td className="px-6 py-4 flex gap-2">
+                                                     <button
+@@ -295,6 +338,13 @@ const AdminDashboard = () => {
+                                                 </td>
+                                             </tr>
+                                         ))}
++                                        {filteredProducts.length === 0 && (
++                                            <tr>
++                                                <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
++                                                    No products found matching "{searchQuery}"
++                                                </td>
++                                            </tr>
++                                        )}
+                                     </tbody>
+                                 </table>
+                                 {hasMoreProducts && (
+@@ -307,35 +357,93 @@ const AdminDashboard = () => {
+                             </>
+                         ) : (
+                             <>
+-                                <table className="w-full text-left text-sm text-gray-400 mb-4">
+-                                    <thead className="bg-white/5 text-white uppercase font-medium">
+-                                        <tr>
+-                                            <th className="px-6 py-4 rounded-l-lg">Order ID</th>
+-                                            <th className="px-6 py-4">Customer</th>
+-                                            <th className="px-6 py-4">Items</th>
+-                                            <th className="px-6 py-4">Total</th>
+-                                            <th className="px-6 py-4 rounded-r-lg">Status</th>
+-                                        </tr>
+-                                    </thead>
+-                                    <tbody className="divide-y divide-white/5">
+-                                        {orders.map((order, index) => (
+-                                            <tr key={index} className="hover:bg-white/5 transition-colors">
+-                                                <td className="px-6 py-4 text-white">#{order.id}</td>
+-                                                <td className="px-6 py-4">{order.customer_email}</td>
+-                                                <td className="px-6 py-4">{Array.isArray(order.items) ? order.items.length : 0} Items</td>
+-                                                <td className="px-6 py-4 text-white">₹{order.total_amount}</td>
+-                                                <td className="px-6 py-4">
+-                                                    <span className={`px-3 py-1 rounded-full text-xs uppercase ${order.status === 'confirmed' ? 'bg-green-500/10 text-green-500' :
+-                                                        order.status === 'pending' ? 'bg-yellow-500/10 text-yellow-500' :
+-                                                            'bg-blue-500/10 text-blue-500'
+-                                                        }`}>
+-                                                        {order.status}
+-                                                    </span>
+-                                                </td>
+-                                            </tr>
+-                                        ))}
+-                                    </tbody>
+-                                </table>
++                                {/* Order Status Tabs */}
++                                <div className="flex flex-wrap gap-2 mb-6">
++                                    {['All', 'pending', 'confirmed', 'shipped'].map((status) => (
++                                        <button
++                                            key={status}
++                                            onClick={() => setOrderStatusFilter(status)}
++                                            className={`px-5 py-2 rounded-full text-sm font-semibold transition-all shadow-sm ${orderStatusFilter === status
++                                                ? 'bg-violet-500 text-white border border-violet-400'
++                                                : 'bg-white/5 hover:bg-white/10 text-gray-400 border border-white/10 hover:text-white'
++                                                }`}
++                                        >
++                                            {status === 'All' ? 'All Orders' : status.charAt(0).toUpperCase() + status.slice(1)}
++                                        </button>
++                                    ))}
++                                </div>
++
++                                <div className="space-y-4 mb-6">
++                                    {filteredOrders.length > 0 ? (
++                                        filteredOrders.map((order, index) => (
++                                            <div
++                                                key={index}
++                                                className="bg-white/5 border border-white/10 rounded-2xl p-5 hover:bg-white/10 transition-all group flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative overflow-hidden"
++                                            >
++                                                {/* Left Margin Accent Line */}
++                                                <div className={`absolute left-0 top-0 bottom-0 w-1 ${order.status === 'confirmed' ? 'bg-green-500' :
++                                                    order.status === 'pending' ? 'bg-yellow-500' :
++                                                        'bg-blue-500'
++                                                    }`}></div>
++
++                                                {/* Left section: ID & Email & Date */}
++                                                <div className="flex items-center gap-4 pl-2">
++                                                    <div className="w-12 h-12 rounded-xl bg-violet-500/10 flex items-center justify-center border border-violet-500/20 text-violet-400 shrink-0">
++                                                        <Package size={24} />
++                                                    </div>
++                                                    <div>
++                                                        <h3 className="text-white font-bold text-lg leading-tight flex items-center gap-2">
++                                                            Order #order_tronix_{String(order.id).padStart(4, '0')}
++                                                            <span className="text-xs font-normal text-gray-500 flex items-center gap-1 bg-white/5 px-2 py-0.5 rounded-md border border-white/5">
++                                                                <Calendar size={12} />
++                                                                {order.created_at ? new Date(order.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
++                                                            </span>
++                                                        </h3>
++                                                        <p className="text-gray-400 text-sm mt-0.5">{order.full_name || order.customer_email}</p>
++                                                    </div>
++                                                </div>
++
++                                                {/* Middle section: Stats */}
++                                                <div className="flex flex-wrap items-center gap-x-8 gap-y-3 sm:ml-auto mr-4">
++                                                    <div>
++                                                        <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-0.5">Total Amount</p>
++                                                        <p className="text-emerald-400 font-bold sm:text-lg leading-tight">₹{order.total_amount.toLocaleString()}</p>
++                                                    </div>
++                                                    <div>
++                                                        <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-0.5">Items</p>
++                                                        <p className="text-white font-medium sm:text-lg leading-tight">{Array.isArray(order.items) ? order.items.length : 0}</p>
++                                                    </div>
++                                                    <div>
++                                                        <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-1">Status</p>
++                                                        <span className={`px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wider font-bold ${order.status === 'confirmed' ? 'bg-green-500/10 text-green-400 border border-green-500/20' :
++                                                            order.status === 'pending' ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20' :
++                                                                'bg-blue-500/10 text-blue-400 border border-blue-500/20'
++                                                            }`}>
++                                                            {order.status}
++                                                        </span>
++                                                    </div>
++                                                </div>
++
++                                                {/* Right Action Button */}
++                                                <button
++                                                    onClick={() => setSelectedOrder(order)}
++                                                    className="w-full sm:w-auto px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 rounded-xl text-white text-sm font-semibold transition-all flex items-center justify-center gap-2 group-hover:bg-violet-500/20 group-hover:text-violet-300 group-hover:border-violet-500/30"
++                                                >
++                                                    <Search size={16} className="opacity-70" />
++                                                    <span>View Details</span>
++                                                </button>
++                                            </div>
++                                        ))
++                                    ) : (
++                                        <div className="text-center py-12 px-4 bg-white/5 border border-white/10 rounded-2xl">
++                                            <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
++                                                <Search size={24} className="text-gray-500" />
++                                            </div>
++                                            <h3 className="text-lg font-medium text-white mb-1">No Orders Found</h3>
++                                            <p className="text-gray-400 text-sm">We couldn't find any orders matching "{searchQuery}"</p>
++                                        </div>
++                                    )}
++                                </div>
+                                 {hasMoreOrders && (
+                                     <div className="flex justify-center mt-4">
+                                         <button onClick={loadMore} disabled={loadingMore} className="text-tronix-primary hover:underline disabled:opacity-50">
+@@ -348,116 +456,289 @@ const AdminDashboard = () => {
+                     </div>
+                 </div>
+             </div>
+-            {/* Add Product Modal */}
+-            {isAddProductOpen && (
+-                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+-                    <div className="bg-tronix-card border border-white/10 rounded-2xl w-full max-w-lg p-6 relative">
+-                        <button
++            {/* Add/Edit Product Modal */}
++            <AnimatePresence>
++                {isAddProductOpen && (
++                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
++                        {/* Backdrop */}
++                        <motion.div
++                            initial={{ opacity: 0 }}
++                            animate={{ opacity: 1 }}
++                            exit={{ opacity: 0 }}
+                             onClick={() => setIsAddProductOpen(false)}
+-                            className="absolute top-4 right-4 text-gray-400 hover:text-white"
++                            className="absolute inset-0 bg-black/80 backdrop-blur-md"
++                        />
++
++                        {/* Modal Content */}
++                        <motion.div
++                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
++                            animate={{ opacity: 1, scale: 1, y: 0 }}
++                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
++                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
++                            className="relative w-full max-w-4xl bg-tronix-card border border-white/10 rounded-2xl shadow-2xl shadow-violet-500/10 flex flex-col max-h-[90vh] overflow-hidden"
+                         >
+-                            <X size={24} />
+-                        </button>
+-
+-                        <h2 className="text-2xl font-display font-bold text-white mb-6">
+-                            {editingProduct ? 'Edit Product' : 'Add New Product'}
+-                        </h2>
+-
+-                        <form onSubmit={handleSaveProduct} className="space-y-4">
+-                            <div>
+-                                <label className="block text-sm text-gray-400 mb-1">Product Title</label>
+-                                <input
+-                                    type="text"
+-                                    required
+-                                    value={newProduct.title}
+-                                    onChange={(e) => setNewProduct({ ...newProduct, title: e.target.value })}
+-                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-tronix-primary outline-none"
+-                                />
+-                            </div>
+-                            <div className="grid grid-cols-2 gap-4">
+-                                <div>
+-                                    <label className="block text-sm text-gray-400 mb-1">Price (₹)</label>
+-                                    <input
+-                                        type="number"
+-                                        required
+-                                        value={newProduct.price}
+-                                        onChange={(e) => setNewProduct({ ...newProduct, price: Number(e.target.value) })}
+-                                        className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-tronix-primary outline-none"
+-                                    />
+-                                </div>
+-                                <div>
+-                                    <label className="block text-sm text-gray-400 mb-1">Stock</label>
+-                                    <input
+-                                        type="number"
+-                                        required
+-                                        value={newProduct.stock || ''}
+-                                        onChange={(e) => setNewProduct({ ...newProduct, stock: Number(e.target.value) })}
+-                                        className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-tronix-primary outline-none"
+-                                    />
+-                                </div>
+-                            </div>
+-                            <div>
+-                                <label className="block text-sm text-gray-400 mb-1">Category</label>
+-                                <select
+-                                    value={newProduct.category}
+-                                    onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
+-                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-tronix-primary outline-none"
++                            {/* Header */}
++                            <div className="flex items-center justify-between p-6 border-b border-white/10 bg-white/5">
++                                <h2 className="text-2xl font-display font-bold text-white flex items-center gap-3">
++                                    <div className="w-10 h-10 rounded-xl bg-tronix-primary/20 flex items-center justify-center border border-tronix-primary/30">
++                                        {editingProduct ? <Edit className="text-tronix-primary w-5 h-5" /> : <Plus className="text-tronix-primary w-5 h-5" />}
++                                    </div>
++                                    {editingProduct ? 'Edit Product' : 'Add New Product'}
++                                </h2>
++                                <button
++                                    onClick={() => setIsAddProductOpen(false)}
++                                    className="p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                                 >
+-                                    <option>Development Boards</option>
+-                                    <option>Sensors</option>
+-                                    <option>Modules</option>
+-                                    <option>Motors</option>
+-                                    <option>Battery</option>
+-                                    <option>Displays</option>
+-                                </select>
+-                            </div>
+-                            <div>
+-                                <label className="block text-sm text-gray-400 mb-1">Image URL</label>
+-                                <div className="flex gap-2">
+-                                    <input
+-                                        type="url"
+-                                        placeholder="https://..."
+-                                        value={newProduct.image}
+-                                        onChange={(e) => setNewProduct({ ...newProduct, image: e.target.value })}
+-                                        className="flex-1 bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-tronix-primary outline-none"
+-                                    />
+-                                    <input
+-                                        type="file"
+-                                        ref={fileInputRef}
+-                                        className="hidden"
+-                                        accept="image/*"
+-                                        onChange={handleImageUpload}
+-                                    />
+-                                    <button
+-                                        type="button"
+-                                        onClick={() => fileInputRef.current.click()}
+-                                        className="bg-white/10 px-3 rounded-lg hover:bg-white/20 transition-colors flex items-center justify-center min-w-[44px]"
+-                                        disabled={uploading}
+-                                    >
+-                                        {uploading ? <Loader size={20} className="animate-spin text-tronix-primary" /> : <ImageIcon size={20} className="text-gray-300" />}
+-                                    </button>
+-                                </div>
++                                    <X size={24} />
++                                </button>
+                             </div>
+-                            <div>
+-                                <label className="block text-sm text-gray-400 mb-1">Description</label>
+-                                <textarea
+-                                    rows="3"
+-                                    value={newProduct.description}
+-                                    onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
+-                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:border-tronix-primary outline-none"
+-                                />
++
++                            {/* Form Body - Scrollable */}
++                            <div className="p-6 overflow-y-auto custom-scrollbar">
++                                <form id="product-form" onSubmit={handleSaveProduct} className="grid grid-cols-1 lg:grid-cols-12 gap-6">
++
++                                    {/* Left Column - Main Details */}
++                                    <div className="lg:col-span-8 space-y-5">
++                                        <div className="bg-white/5 border border-white/5 rounded-2xl p-5 space-y-4">
++                                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2">
++                                                <Info size={16} /> Basic Information
++                                            </h3>
++
++                                            <div>
++                                                <label className="block text-sm font-medium text-gray-300 mb-1.5 pl-1">Product Title</label>
++                                                <div className="relative">
++                                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
++                                                        <Tag size={18} />
++                                                    </div>
++                                                    <input
++                                                        type="text"
++                                                        required
++                                                        placeholder="e.g. Arduino Uno R3"
++                                                        value={newProduct.title}
++                                                        onChange={(e) => setNewProduct({ ...newProduct, title: e.target.value })}
++                                                        className="w-full bg-black/20 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-white placeholder-gray-600 focus:border-tronix-primary focus:ring-1 focus:ring-tronix-primary focus:bg-white/5 transition-all outline-none"
++                                                    />
++                                                </div>
++                                            </div>
++
++                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
++                                                <div>
++                                                    <label className="block text-sm font-medium text-gray-300 mb-1.5 pl-1">Category</label>
++                                                    <div className="relative">
++                                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
++                                                            <Boxes size={18} />
++                                                        </div>
++                                                        <select
++                                                            value={newProduct.category}
++                                                            onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
++                                                            className="w-full bg-black/20 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-white focus:border-tronix-primary focus:ring-1 focus:ring-tronix-primary focus:bg-white/5 transition-all outline-none appearance-none"
++                                                        >
++                                                            <option className="bg-tronix-card text-white">Development Boards</option>
++                                                            <option className="bg-tronix-card text-white">Sensors</option>
++                                                            <option className="bg-tronix-card text-white">Modules</option>
++                                                            <option className="bg-tronix-card text-white">Motors</option>
++                                                            <option className="bg-tronix-card text-white">Battery</option>
++                                                            <option className="bg-tronix-card text-white">Displays</option>
++                                                        </select>
++                                                    </div>
++                                                </div>
++                                                <div>
++                                                    <label className="block text-sm font-medium text-gray-300 mb-1.5 pl-1 flex items-center justify-between">
++                                                        <span>Stock Quantity</span>
++                                                        <button
++                                                            type="button"
++                                                            onClick={() => setNewProduct({ ...newProduct, stock: 0 })}
++                                                            className="text-xs text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 px-2 py-0.5 rounded-md transition-colors"
++                                                        >
++                                                            Out of Stock
++                                                        </button>
++                                                    </label>
++                                                    <div className="relative">
++                                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
++                                                            <Package size={18} />
++                                                        </div>
++                                                        <input
++                                                            type="number"
++                                                            required
++                                                            placeholder="0"
++                                                            value={newProduct.stock === 0 ? 0 : newProduct.stock || ''}
++                                                            onChange={(e) => setNewProduct({ ...newProduct, stock: Number(e.target.value) })}
++                                                            className="w-full bg-black/20 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-white placeholder-gray-600 focus:border-tronix-primary focus:ring-1 focus:ring-tronix-primary focus:bg-white/5 transition-all outline-none"
++                                                        />
++                                                    </div>
++                                                </div>
++                                            </div>
++                                        </div>
++
++                                        <div className="bg-white/5 border border-white/5 rounded-2xl p-5 space-y-4">
++                                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2">
++                                                <List size={16} /> Details & Features
++                                            </h3>
++
++                                            <div>
++                                                <label className="block text-sm font-medium text-gray-300 mb-1.5 pl-1">Description</label>
++                                                <textarea
++                                                    rows="3"
++                                                    placeholder="Detailed description of the product..."
++                                                    value={newProduct.description}
++                                                    onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
++                                                    className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:border-tronix-primary focus:ring-1 focus:ring-tronix-primary focus:bg-white/5 transition-all outline-none resize-none custom-scrollbar"
++                                                />
++                                            </div>
++                                            <div>
++                                                <label className="block text-sm font-medium text-gray-300 mb-1.5 pl-1 flex items-center justify-between">
++                                                    <span>Features</span>
++                                                    <span className="text-xs text-gray-500 font-normal">One per line</span>
++                                                </label>
++                                                <textarea
++                                                    rows="4"
++                                                    placeholder="e.g. Wi-Fi Enabled&#10;Bluetooth 5.0&#10;Rechargeable Battery"
++                                                    value={newProduct.features}
++                                                    onChange={(e) => setNewProduct({ ...newProduct, features: e.target.value })}
++                                                    className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-600 focus:border-tronix-primary focus:ring-1 focus:ring-tronix-primary focus:bg-white/5 transition-all outline-none resize-none custom-scrollbar font-mono text-sm leading-relaxed"
++                                                />
++                                            </div>
++                                        </div>
++                                    </div>
++
++                                    {/* Right Column - Pricing & Media */}
++                                    <div className="lg:col-span-4 space-y-5">
++                                        <div className="bg-white/5 border border-white/5 rounded-2xl p-5 space-y-4">
++                                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2">
++                                                <DollarSign size={16} /> Pricing
++                                            </h3>
++
++                                            <div className="grid grid-cols-2 gap-4">
++                                                <div>
++                                                    <label className="block text-sm font-medium text-gray-300 mb-1.5 pl-1">MRP (₹)</label>
++                                                    <div className="relative">
++                                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
++                                                            ₹
++                                                        </div>
++                                                        <input
++                                                            type="number"
++                                                            placeholder="0.00"
++                                                            value={newProduct.mrp || ''}
++                                                            onChange={(e) => setNewProduct({ ...newProduct, mrp: e.target.value ? Number(e.target.value) : '' })}
++                                                            className="w-full bg-black/20 border border-white/10 rounded-xl pl-8 pr-4 py-3 text-white placeholder-gray-600 focus:border-tronix-primary focus:ring-1 focus:ring-tronix-primary focus:bg-white/5 transition-all outline-none text-lg font-bold"
++                                                        />
++                                                    </div>
++                                                </div>
++                                                <div>
++                                                    <label className="block text-sm font-medium text-gray-300 mb-1.5 pl-1">Sale Price (₹)</label>
++                                                    <div className="relative">
++                                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-emerald-500">
++                                                            ₹
++                                                        </div>
++                                                        <input
++                                                            type="number"
++                                                            required
++                                                            placeholder="0.00"
++                                                            value={newProduct.price}
++                                                            onChange={(e) => setNewProduct({ ...newProduct, price: Number(e.target.value) })}
++                                                            className="w-full bg-black/20 border border-emerald-500/30 rounded-xl pl-8 pr-4 py-3 text-emerald-400 placeholder-emerald-900/50 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:bg-emerald-500/5 transition-all outline-none text-lg font-bold"
++                                                        />
++                                                    </div>
++                                                </div>
++                                            </div>
++                                        </div>
++
++                                        <div className="bg-white/5 border border-white/5 rounded-2xl p-5 space-y-4">
++                                            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2">
++                                                <ImageIcon size={16} /> Media
++                                            </h3>
++
++                                            <div>
++                                                <label className="block text-sm font-medium text-gray-300 mb-1.5 pl-1">Product Image</label>
++
++                                                {/* Image Preview Block */}
++                                                <div className="w-full aspect-[4/3] rounded-xl border-2 border-dashed border-white/10 mb-3 bg-black/20 flex flex-col items-center justify-center relative overflow-hidden group">
++                                                    {newProduct.image ? (
++                                                        <>
++                                                            <img src={newProduct.image} alt="Preview" className="w-full h-full object-cover" />
++                                                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
++                                                                <button
++                                                                    type="button"
++                                                                    onClick={() => fileInputRef.current?.click()}
++                                                                    className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg backdrop-blur-md transition-colors flex items-center gap-2 font-medium shadow-xl"
++                                                                    disabled={uploading}
++                                                                >
++                                                                    <Edit size={18} /> Change Image
++                                                                </button>
++                                                            </div>
++                                                        </>
++                                                    ) : (
++                                                        <div className="text-center p-4">
++                                                            <div className="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-2">
++                                                                <ImageIcon className="text-gray-400 w-6 h-6" />
++                                                            </div>
++                                                            <p className="text-sm text-gray-400 mb-3">No image selected</p>
++                                                            <button
++                                                                type="button"
++                                                                onClick={() => fileInputRef.current?.click()}
++                                                                className="bg-tronix-primary/20 hover:bg-tronix-primary/30 text-tronix-primary border border-tronix-primary/30 px-4 py-2 rounded-lg transition-colors flex items-center gap-2 font-medium mx-auto text-sm"
++                                                                disabled={uploading}
++                                                            >
++                                                                <Plus size={16} /> Upload Image
++                                                            </button>
++                                                        </div>
++                                                    )}
++
++                                                    {/* Upload Overlay */}
++                                                    {uploading && (
++                                                        <div className="absolute inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center z-10">
++                                                            <Loader className="w-8 h-8 text-tronix-primary animate-spin mb-2" />
++                                                            <span className="text-sm font-medium text-white">Uploading...</span>
++                                                        </div>
++                                                    )}
++                                                </div>
++
++                                                <input
++                                                    type="file"
++                                                    ref={fileInputRef}
++                                                    className="hidden"
++                                                    accept="image/*"
++                                                    onChange={handleImageUpload}
++                                                />
++
++                                                {/* Manual URL Input */}
++                                                <div className="relative mt-2">
++                                                    <input
++                                                        type="text"
++                                                        placeholder="Or paste image URL here..."
++                                                        value={newProduct.image || ''}
++                                                        onChange={(e) => setNewProduct({ ...newProduct, image: e.target.value })}
++                                                        className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-sm text-white placeholder-gray-600 focus:border-tronix-primary focus:ring-1 focus:ring-tronix-primary focus:bg-white/5 transition-all outline-none"
++                                                    />
++                                                </div>
++                                            </div>
++                                        </div>
++                                    </div>
++                                </form>
+                             </div>
+ 
+-                            <button
+-                                type="submit"
+-                                className="w-full bg-tronix-primary hover:bg-violet-600 text-white font-bold py-3 rounded-xl transition-colors mt-2"
+-                            >
+-                                {editingProduct ? 'Update Product' : 'Create Product'}
+-                            </button>
+-                        </form>
++                            {/* Sticky Footer */}
++                            <div className="p-6 border-t border-white/10 bg-black/20 backdrop-blur-xl flex justify-end gap-3 rounded-b-2xl mt-auto shadow-[0_-10px_40px_rgba(0,0,0,0.3)]">
++                                <button
++                                    type="button"
++                                    onClick={() => setIsAddProductOpen(false)}
++                                    className="px-6 py-2.5 rounded-xl text-gray-300 font-medium hover:bg-white/10 transition-colors"
++                                >
++                                    Cancel
++                                </button>
++                                <button
++                                    type="submit"
++                                    form="product-form"
++                                    className="bg-tronix-primary hover:bg-violet-600 text-white font-bold px-8 py-2.5 rounded-xl transition-all shadow-lg shadow-violet-500/25 flex items-center gap-2"
++                                >
++                                    <Save size={18} />
++                                    {editingProduct ? 'Save Changes' : 'Create Product'}
++                                </button>
++                            </div>
++                        </motion.div>
+                     </div>
+-                </div >
+-            )}
++                )}
++            </AnimatePresence>
+             {/* Delete Confirmation Modal */}
+             {isDeleteModalOpen && (
+                 <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+@@ -486,6 +767,220 @@ const AdminDashboard = () => {
+                     </div>
+                 </div>
+             )}
++
++            {/* Order Details Modal */}
++            <AnimatePresence>
++                {selectedOrder && (
++                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
++                        {/* Backdrop */}
++                        <motion.div
++                            initial={{ opacity: 0 }}
++                            animate={{ opacity: 1 }}
++                            exit={{ opacity: 0 }}
++                            onClick={() => setSelectedOrder(null)}
++                            className="absolute inset-0 bg-black/80 backdrop-blur-md"
++                        />
++
++                        {/* Modal Content */}
++                        <motion.div
++                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
++                            animate={{ opacity: 1, scale: 1, y: 0 }}
++                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
++                            transition={{ type: "spring", stiffness: 300, damping: 30 }}
++                            className="relative w-full max-w-4xl bg-tronix-card border border-white/10 rounded-2xl shadow-2xl shadow-violet-500/10 flex flex-col max-h-[90vh] overflow-hidden"
++                        >
++                            {/* Header */}
++                            <div className="flex items-center justify-between p-6 border-b border-white/10 bg-white/5">
++                                <div>
++                                    <h2 className="text-2xl font-display font-bold text-white flex items-center gap-3">
++                                        <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center border border-violet-500/30">
++                                            <Package className="text-violet-400 w-5 h-5" />
++                                        </div>
++                                        Order Details
++                                    </h2>
++                                    <p className="text-gray-400 mt-1 ml-14 text-sm">Order ID: #order_tronix_{String(selectedOrder.id).padStart(4, '0')} • {selectedOrder.customer_email}</p>
++                                </div>
++                                <button
++                                    onClick={() => setSelectedOrder(null)}
++                                    className="p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
++                                >
++                                    <X size={24} />
++                                </button>
++                            </div>
++
++                            {/* Body - Scrollable */}
++                            <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
++
++                                {/* Status Pipeline Stepper */}
++                                <div className="bg-black/20 border border-white/5 rounded-2xl p-6 relative overflow-hidden">
++                                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-violet-500/20 via-fuchsia-500/20 to-blue-500/20"></div>
++                                    <div className="flex items-center justify-between relative z-10">
++                                        {['pending', 'confirmed', 'shipped'].map((step, idx, arr) => {
++                                            const isActive = selectedOrder.status === step || arr.indexOf(selectedOrder.status) > idx;
++                                            const isCurrent = selectedOrder.status === step;
++                                            return (
++                                                <div key={step} className="flex flex-col items-center flex-1 relative">
++                                                    {/* Connecting Line */}
++                                                    {idx !== arr.length - 1 && (
++                                                        <div className={`absolute top-5 left-[50%] right-[-50%] h-[2px] ${isActive ? 'bg-violet-500' : 'bg-white/10'}`} />
++                                                    )}
++
++                                                    {/* Step Circle */}
++                                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center relative z-10 transition-colors duration-500 ${isActive ? 'bg-violet-500 text-white shadow-[0_0_15px_rgba(139,92,246,0.5)]' : 'bg-white/5 text-gray-500 border border-white/10'
++                                                        }`}>
++                                                        {isActive && !isCurrent ? <Check size={20} /> :
++                                                            step === 'pending' ? <Clock size={20} /> :
++                                                                step === 'confirmed' ? <Package size={20} /> : <Truck size={20} />}
++                                                    </div>
++
++                                                    {/* Step Label */}
++                                                    <p className={`mt-3 text-xs font-bold uppercase tracking-wider ${isActive ? 'text-white' : 'text-gray-500'}`}>
++                                                        {step}
++                                                    </p>
++                                                </div>
++                                            );
++                                        })}
++                                    </div>
++                                </div>
++
++                                {/* Customer & Order Info Grid */}
++                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
++
++                                    {/* Customer Profile Card */}
++                                    <div className="bg-white/5 border border-white/5 rounded-2xl p-5 hover:bg-white/10 transition-colors">
++                                        <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
++                                            <User size={16} className="text-violet-400" /> Customer Profile
++                                        </h3>
++                                        <div className="space-y-4">
++                                            <div>
++                                                <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Full Name</p>
++                                                <p className="text-white font-medium text-lg">{selectedOrder.full_name || 'N/A'}</p>
++                                            </div>
++                                            <div>
++                                                <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Email Address</p>
++                                                <p className="text-gray-300">{selectedOrder.customer_email}</p>
++                                            </div>
++                                            {selectedOrder.phone && (
++                                                <div>
++                                                    <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Phone Number</p>
++                                                    <p className="text-gray-300">{selectedOrder.phone}</p>
++                                                </div>
++                                            )}
++                                        </div>
++                                    </div>
++
++                                    {/* Order Timeline Card */}
++                                    <div className="bg-white/5 border border-white/5 rounded-2xl p-5 hover:bg-white/10 transition-colors">
++                                        <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
++                                            <CreditCard size={16} className="text-emerald-400" /> Payment & Timeline
++                                        </h3>
++                                        <div className="space-y-4">
++                                            <div>
++                                                <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Transaction ID</p>
++                                                <p className="text-emerald-400 font-mono text-sm bg-emerald-500/10 inline-block px-2 py-1 rounded mt-1 border border-emerald-500/20">
++                                                    {selectedOrder.txnid || 'Payment Pending / COD'}
++                                                </p>
++                                            </div>
++                                            <div>
++                                                <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Order Placed On</p>
++                                                <p className="text-gray-300 flex items-center gap-2 mt-1">
++                                                    <Calendar size={14} className="text-gray-500" />
++                                                    {selectedOrder.created_at ? new Date(selectedOrder.created_at).toLocaleString(undefined, {
++                                                        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
++                                                    }) : 'N/A'}
++                                                </p>
++                                            </div>
++                                            <div>
++                                                <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Total Amount</p>
++                                                <p className="text-white font-bold text-xl mt-0.5">₹{selectedOrder.total_amount.toLocaleString()}</p>
++                                            </div>
++                                        </div>
++                                    </div>
++                                </div>
++
++                                {/* Items Table */}
++                                <div className="bg-white/5 border border-white/5 rounded-2xl overflow-hidden">
++                                    <div className="p-4 border-b border-white/5 bg-black/20">
++                                        <h3 className="font-semibold text-white">Purchased Products</h3>
++                                    </div>
++                                    <div className="overflow-x-auto">
++                                        <table className="w-full text-left text-sm text-gray-400">
++                                            <thead className="bg-black/40 text-gray-300 uppercase font-medium text-xs">
++                                                <tr>
++                                                    <th className="px-6 py-4">Product</th>
++                                                    <th className="px-6 py-4">SKV</th>
++                                                    <th className="px-6 py-4 text-center">Qty</th>
++                                                    <th className="px-6 py-4 text-right">Unit Price</th>
++                                                    <th className="px-6 py-4 text-right">Total</th>
++                                                </tr>
++                                            </thead>
++                                            <tbody className="divide-y divide-white/5">
++                                                {selectedOrder.items && selectedOrder.items.length > 0 ? (
++                                                    selectedOrder.items.map((item, idx) => (
++                                                        <tr key={idx} className="hover:bg-white/5 transition-colors">
++                                                            <td className="px-6 py-4">
++                                                                <div className="flex items-center gap-3">
++                                                                    <div className="w-12 h-12 bg-white/10 rounded-lg flex items-center justify-center overflow-hidden border border-white/10 flex-shrink-0">
++                                                                        {item.product?.image ? (
++                                                                            <img src={item.product.image} alt={item.product.title} className="w-full h-full object-cover" />
++                                                                        ) : (
++                                                                            <ImageIcon className="text-gray-500 w-5 h-5" />
++                                                                        )}
++                                                                    </div>
++                                                                    <span className="font-medium text-white line-clamp-2">{item.product?.title || 'Unknown Product'}</span>
++                                                                </div>
++                                                            </td>
++                                                            <td className="px-6 py-4 text-gray-300 font-mono text-xs max-w-[120px] truncate" title={item.product?.skv}>
++                                                                {item.product?.skv || 'N/A'}
++                                                            </td>
++                                                            <td className="px-6 py-4 text-center font-bold text-white">
++                                                                {item.quantity}x
++                                                            </td>
++                                                            <td className="px-6 py-4 text-right">
++                                                                ₹{item.price_at_purchase || 0}
++                                                            </td>
++                                                            <td className="px-6 py-4 text-right font-bold text-emerald-400">
++                                                                ₹{(item.price_at_purchase || 0) * item.quantity}
++                                                            </td>
++                                                        </tr>
++                                                    ))
++                                                ) : (
++                                                    <tr>
++                                                        <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
++                                                            No item details available.
++                                                        </td>
++                                                    </tr>
++                                                )}
++                                            </tbody>
++                                            {/* Order Summary Footer */}
++                                            {selectedOrder.total_amount > 0 && (
++                                                <tfoot className="bg-black/40 border-t border-white/10">
++                                                    <tr>
++                                                        <td colSpan="3"></td>
++                                                        <td className="px-6 py-3 text-right text-sm text-gray-400 font-medium">Original Amount (before tax):</td>
++                                                        <td className="px-6 py-3 text-right text-sm text-white font-bold">₹{(selectedOrder.total_amount / 1.18).toFixed(2)}</td>
++                                                    </tr>
++                                                    <tr>
++                                                        <td colSpan="3"></td>
++                                                        <td className="px-6 py-3 text-right text-sm text-gray-400 font-medium">GST (18%):</td>
++                                                        <td className="px-6 py-3 text-right text-sm text-yellow-400 font-bold">₹{(selectedOrder.total_amount - (selectedOrder.total_amount / 1.18)).toFixed(2)}</td>
++                                                    </tr>
++                                                    <tr className="border-t border-white/10 bg-white/5">
++                                                        <td colSpan="3"></td>
++                                                        <td className="px-6 py-4 text-right text-sm text-white font-bold">Grand Total:</td>
++                                                        <td className="px-6 py-4 text-right text-base text-emerald-400 font-black">₹{selectedOrder.total_amount.toLocaleString()}</td>
++                                                    </tr>
++                                                </tfoot>
++                                            )}
++                                        </table>
++                                    </div>
++                                </div>
++                            </div>
++                        </motion.div>
++                    </div>
++                )}
++            </AnimatePresence>
++
+         </div >
+     );
+ };
+
+========================================
+FILE: src/pages/Checkout.jsx
+========================================
+diff --git a/src/pages/Checkout.jsx b/src/pages/Checkout.jsx
+index d144b83..6967438 100644
+--- a/src/pages/Checkout.jsx
++++ b/src/pages/Checkout.jsx
+@@ -30,6 +30,21 @@ const Checkout = () => {
+         state: ''
+     });
+ 
++    // Auto-fill from logged-in user
++    useEffect(() => {
++        const userStr = localStorage.getItem('tronix_user');
++        if (userStr) {
++            try {
++                const user = JSON.parse(userStr);
++                setAddress(prev => ({
++                    ...prev,
++                    fullName: prev.fullName || user.name || '',
++                    email: prev.email || user.email || ''
++                }));
++            } catch (e) { }
++        }
++    }, []);
++
+     const [paymentMethod, setPaymentMethod] = useState('payu');
+ 
+     // Derived Totals
+@@ -58,7 +73,7 @@ const Checkout = () => {
+ 
+         setLoading(true);
+         try {
+-            const user = JSON.parse(localStorage.getItem('user'));
++            const user = JSON.parse(localStorage.getItem('tronix_user'));
+             const email = address.email || (user ? user.email : "guest@example.com");
+ 
+             // 1. Get PayU params and hash from backend
+
+========================================
+FILE: src/pages/UserDashboard.jsx
+========================================
+diff --git a/src/pages/UserDashboard.jsx b/src/pages/UserDashboard.jsx
+index 6c71def..c4959e6 100644
+--- a/src/pages/UserDashboard.jsx
++++ b/src/pages/UserDashboard.jsx
+@@ -1,6 +1,6 @@
+ import React, { useState, useEffect } from 'react';
+ import { useNavigate } from 'react-router-dom';
+-import { Package, User, LogOut, ChevronRight, Clock, CheckCircle, XCircle } from 'lucide-react';
++import { Package, User, LogOut, ChevronRight, Clock, CheckCircle, XCircle, Mail, ShieldCheck, Calendar, Eye, EyeOff, Upload, Camera } from 'lucide-react';
+ import toast from 'react-hot-toast';
+ import client from '../api/client';
+ 
+@@ -9,6 +9,14 @@ const UserDashboard = () => {
+     const [user, setUser] = useState(null);
+     const [orders, setOrders] = useState([]);
+     const [activeTab, setActiveTab] = useState('orders');
++    const [orderStatusFilter, setOrderStatusFilter] = useState('All');
++
++    // Profile Edit State
++    const [isEditing, setIsEditing] = useState(false);
++    const [editForm, setEditForm] = useState({ full_name: '', password: '', profile_picture: '' });
++    const [uploadingImage, setUploadingImage] = useState(false);
++    const [updating, setUpdating] = useState(false);
++    const [showPassword, setShowPassword] = useState(false);
+ 
+     // Pagination State
+     const [page, setPage] = useState(1);
+@@ -66,7 +74,7 @@ const UserDashboard = () => {
+             setOrders(prev => [...prev, ...newOrders]);
+             setPage(prev => prev + 1);
+             if (newOrders.length < LIMIT) setHasMore(false);
+-        } catch (error) {
++        } catch (e) {
+             toast.error("Failed to load more orders");
+         } finally {
+             setLoadingMore(false);
+@@ -76,9 +84,72 @@ const UserDashboard = () => {
+     const handleLogout = () => {
+         localStorage.removeItem('tronix_token');
+         localStorage.removeItem('tronix_user');
++        localStorage.removeItem('user');
++        localStorage.removeItem('tronix365_cart');
++        localStorage.removeItem('tronix365_wishlist');
+         window.location.href = '/login';
+     };
+ 
++    const handleEditToggle = () => {
++        setIsEditing(!isEditing);
++        setEditForm({ full_name: user?.full_name || '', password: '', profile_picture: user?.profile_picture || '' });
++    };
++
++    const handleImageUpload = async (e) => {
++        const file = e.target.files[0];
++        if (!file) return;
++
++        const formData = new FormData();
++        formData.append('file', file);
++
++        setUploadingImage(true);
++        try {
++            const res = await client.post('/upload', formData, {
++                headers: { 'Content-Type': 'multipart/form-data' }
++            });
++            setEditForm({ ...editForm, profile_picture: res.data.url });
++            toast.success('Image uploaded successfully! Click Save to apply.');
++        } catch (error) {
++            console.error('Upload Error:', error);
++            toast.error('Failed to upload image.');
++        } finally {
++            setUploadingImage(false);
++        }
++    };
++
++    const handleUpdateProfile = async () => {
++        setUpdating(true);
++        try {
++            const payload = {};
++            if (editForm.full_name !== user?.full_name) payload.full_name = editForm.full_name;
++            if (editForm.password) payload.password = editForm.password;
++            if (editForm.profile_picture !== user?.profile_picture) payload.profile_picture = editForm.profile_picture;
++
++            if (Object.keys(payload).length === 0) {
++                setIsEditing(false);
++                setUpdating(false);
++                return;
++            }
++
++            const res = await client.put('/profile', payload);
++            setUser(res.data);
++
++            // update local storage
++            const localUser = JSON.parse(localStorage.getItem('tronix_user') || '{}');
++            localUser.name = res.data.full_name;
++            localUser.profile_picture = res.data.profile_picture;
++            localStorage.setItem('tronix_user', JSON.stringify(localUser));
++
++            toast.success("Profile updated successfully!");
++            setIsEditing(false);
++        } catch (error) {
++            toast.error("Failed to update profile");
++            console.error(error);
++        } finally {
++            setUpdating(false);
++        }
++    };
++
+     if (loading) {
+         return <div className="min-h-screen pt-24 text-center text-white">Loading dashboard...</div>;
+     }
+@@ -91,10 +162,14 @@ const UserDashboard = () => {
+                     {/* Sidebar */}
+                     <div className="w-full md:w-64 space-y-4">
+                         <div className="bg-tronix-card border border-white/10 rounded-xl p-6 text-center">
+-                            <div className="w-20 h-20 bg-tronix-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
+-                                <span className="text-2xl font-bold text-tronix-primary">
+-                                    {user?.full_name?.charAt(0).toUpperCase()}
+-                                </span>
++                            <div className="w-20 h-20 rounded-full mx-auto mb-4 relative overflow-hidden bg-tronix-primary/20 border-2 border-tronix-primary/30 flex items-center justify-center">
++                                {user?.profile_picture ? (
++                                    <img src={user.profile_picture} alt={user?.full_name} className="w-full h-full object-cover" />
++                                ) : (
++                                    <span className="text-2xl font-bold text-tronix-primary">
++                                        {user?.full_name?.charAt(0).toUpperCase()}
++                                    </span>
++                                )}
+                             </div>
+                             <h2 className="text-xl font-bold text-white">{user?.full_name}</h2>
+                             <p className="text-gray-400 text-sm">{user?.email}</p>
+@@ -127,8 +202,24 @@ const UserDashboard = () => {
+                         {activeTab === 'orders' ? (
+                             <div className="space-y-6">
+                                 <h2 className="text-2xl font-bold text-white mb-6">Order History</h2>
++
++                                {/* Order Status Tabs */}
++                                <div className="flex flex-wrap gap-2 mb-6">
++                                    {['All', 'pending', 'confirmed', 'shipped'].map((status) => (
++                                        <button
++                                            key={status}
++                                            onClick={() => setOrderStatusFilter(status)}
++                                            className={`px-5 py-2 rounded-full text-sm font-semibold transition-all shadow-sm ${orderStatusFilter === status
++                                                ? 'bg-violet-500 text-white border border-violet-400'
++                                                : 'bg-white/5 hover:bg-white/10 text-gray-400 border border-white/10 hover:text-white'
++                                                }`}
++                                        >
++                                            {status === 'All' ? 'All Orders' : status.charAt(0).toUpperCase() + status.slice(1)}
++                                        </button>
++                                    ))}
++                                </div>
+                                 {orders.length === 0 ? (
+-                                    <div className="bg-tronix-card border border-white/10 rounded-xl p-8 text-center">
++                                    <div className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center">
+                                         <Package size={48} className="mx-auto text-gray-500 mb-4" />
+                                         <h3 className="text-xl font-bold text-white mb-2">No orders yet</h3>
+                                         <button
+@@ -139,97 +230,277 @@ const UserDashboard = () => {
+                                         </button>
+                                     </div>
+                                 ) : (
+-                                    <>
+-                                        {orders.map((order) => (
+-                                            <div key={order.id} className="bg-tronix-card border border-white/10 rounded-xl overflow-hidden">
+-                                                <div className="p-4 border-b border-white/5 flex flex-wrap items-center justify-between gap-4 bg-white/5">
+-                                                    <div className="space-y-1">
+-                                                        <p className="text-sm text-gray-400">Order ID</p>
+-                                                        <p className="font-mono text-white">#{order.id}</p>
++                                    <div className="space-y-4">
++                                        {orders.filter(o => orderStatusFilter === 'All' || o.status === orderStatusFilter).map((order) => (
++                                            <div
++                                                key={order.id}
++                                                className="bg-white/5 border border-white/10 rounded-2xl p-5 hover:bg-white/10 transition-all group flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative overflow-hidden"
++                                            >
++                                                {/* Left Margin Accent Line */}
++                                                <div className={`absolute left-0 top-0 bottom-0 w-1 ${order.status === 'confirmed' ? 'bg-green-500' :
++                                                    order.status === 'pending' ? 'bg-yellow-500' :
++                                                        'bg-blue-500'
++                                                    }`}></div>
++
++                                                {/* Left section: ID & Date */}
++                                                <div className="flex items-center gap-4 pl-2">
++                                                    <div className="w-12 h-12 rounded-xl bg-violet-500/10 flex items-center justify-center border border-violet-500/20 text-violet-400 shrink-0">
++                                                        <Package size={24} />
+                                                     </div>
+-                                                    <div className="space-y-1">
+-                                                        <p className="text-sm text-gray-400">Date</p>
+-                                                        <p className="text-white">Now</p>
++                                                    <div>
++                                                        <h3 className="text-white font-bold text-lg leading-tight flex items-center gap-2">
++                                                            Order #order_tronix_{String(order.id).padStart(4, '0')}
++                                                            <span className="text-xs font-normal text-gray-500 flex items-center gap-1 bg-white/5 px-2 py-0.5 rounded-md border border-white/5">
++                                                                <Calendar size={12} />
++                                                                {order.created_at ? new Date(order.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
++                                                            </span>
++                                                        </h3>
++                                                        <a
++                                                            href={`/invoice/${order.id}`}
++                                                            target="_blank"
++                                                            rel="noopener noreferrer"
++                                                            className="text-blue-400 hover:text-blue-300 transition-colors text-sm mt-0.5 inline-flex items-center gap-1"
++                                                        >
++                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /><line x1="16" x2="8" y1="13" y2="13" /><line x1="16" x2="8" y1="17" y2="17" /><line x1="10" x2="8" y1="9" y2="9" /></svg>
++                                                            Download Invoice
++                                                        </a>
++                                                    </div>
++                                                </div>
++
++                                                {/* Middle section: Stats */}
++                                                <div className="flex flex-wrap items-center gap-x-8 gap-y-3 sm:ml-auto mr-4">
++                                                    <div>
++                                                        <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-0.5">Total Amount</p>
++                                                        <p className="text-emerald-400 font-bold sm:text-lg leading-tight">₹{order.total_amount.toLocaleString()}</p>
+                                                     </div>
+-                                                    <div className="space-y-1">
+-                                                        <p className="text-sm text-gray-400">Total Amount</p>
+-                                                        <p className="font-bold text-tronix-accent">₹{order.total_amount}</p>
++                                                    <div>
++                                                        <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-0.5">Items</p>
++                                                        <p className="text-white font-medium sm:text-lg leading-tight">{Array.isArray(order.items) ? order.items.length : 0}</p>
+                                                     </div>
+                                                     <div>
+-                                                        <span className={`px-3 py-1 rounded-full text-xs uppercase font-bold flex items-center gap-1 ${order.status === 'confirmed' ? 'bg-emerald-500/20 text-emerald-400' :
+-                                                            order.status === 'failed' ? 'bg-red-500/20 text-red-400' :
+-                                                                'bg-yellow-500/20 text-yellow-400'
++                                                        <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-1">Status</p>
++                                                        <span className={`px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wider font-bold ${order.status === 'confirmed' ? 'bg-green-500/10 text-green-400 border border-green-500/20' :
++                                                            order.status === 'pending' ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20' :
++                                                                'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                                                             }`}>
+-                                                            {order.status === 'confirmed' && <CheckCircle size={12} />}
+                                                             {order.status}
+                                                         </span>
+                                                     </div>
+                                                 </div>
+-                                                <div className="p-4 space-y-3">
+-                                                    {order.items.map((item, index) => (
+-                                                        <div key={index} className="flex items-center gap-4">
+-                                                            <div className="w-12 h-12 bg-white/5 rounded-lg flex items-center justify-center">
+-                                                                <Package size={20} className="text-gray-500" />
+-                                                            </div>
+-                                                            <div className="flex-1">
+-                                                                <p className="text-white font-medium">Product ID: {item.product_id}</p>
+-                                                                <p className="text-sm text-gray-400">Qty: {item.quantity}</p>
+-                                                            </div>
+-                                                        </div>
+-                                                    ))}
+-                                                </div>
+-                                            </div>
+-                                        ))}
+ 
+-                                        {hasMore && (
+-                                            <div className="flex justify-center pt-4">
++                                                {/* Right Action Button */}
+                                                 <button
+-                                                    onClick={handleLoadMore}
+-                                                    disabled={loadingMore}
+-                                                    className="px-6 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-white transition-colors disabled:opacity-50"
++                                                    onClick={() => navigate(`/order/${order.id}`)}
++                                                    className="w-full sm:w-auto px-5 py-2.5 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 rounded-xl text-white text-sm font-semibold transition-all flex items-center justify-center gap-2 group-hover:bg-violet-500/20 group-hover:text-violet-300 group-hover:border-violet-500/30"
+                                                 >
+-                                                    {loadingMore ? 'Loading...' : 'Load Older Orders'}
++                                                    <Eye size={16} className="opacity-70" />
++                                                    <span>View Details</span>
+                                                 </button>
+                                             </div>
++                                        ))}
++
++                                        {orders.filter(o => orderStatusFilter === 'All' || o.status === orderStatusFilter).length === 0 && (
++                                            <div className="text-center py-12 px-4 bg-white/5 border border-white/10 rounded-2xl">
++                                                <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
++                                                    <Package size={24} className="text-gray-500" />
++                                                </div>
++                                                <h3 className="text-lg font-medium text-white mb-1">No Orders Found</h3>
++                                                <p className="text-gray-400 text-sm">You have no orders matching the '{orderStatusFilter}' status.</p>
++                                            </div>
+                                         )}
+-                                    </>
++                                    </div>
++                                )}
++
++                                {hasMore && (
++                                    <div className="flex justify-center pt-4">
++                                        <button
++                                            onClick={handleLoadMore}
++                                            disabled={loadingMore}
++                                            className="px-6 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-white transition-colors disabled:opacity-50"
++                                        >
++                                            {loadingMore ? 'Loading...' : 'Load Older Orders'}
++                                        </button>
++                                    </div>
+                                 )}
+                             </div>
+                         ) : (
+-                            <div className="bg-tronix-card border border-white/10 rounded-xl p-8">
+-                                <h2 className="text-2xl font-bold text-white mb-6">Profile Settings</h2>
+-                                <div className="grid grid-cols-1 gap-6 max-w-xl">
+-                                    <div>
+-                                        <label className="block text-gray-400 text-sm mb-2">Full Name</label>
+-                                        <input
+-                                            type="text"
+-                                            value={user?.full_name}
+-                                            disabled
+-                                            className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-3 text-white opacity-50 cursor-not-allowed"
+-                                        />
++                            <div className="space-y-6">
++                                <div className="bg-tronix-card border border-white/10 rounded-xl p-8 shadow-xl relative overflow-hidden">
++                                    {/* Decorative background element */}
++                                    <div className="absolute top-0 right-0 w-64 h-64 bg-tronix-primary/5 rounded-full blur-[80px] -mr-32 -mt-32 pointer-events-none" />
++
++                                    <div className="flex items-center justify-between mb-8 relative z-10 border-b border-white/10 pb-6">
++                                        <div>
++                                            <h2 className="text-2xl font-bold text-white mb-2">Profile Information</h2>
++                                            <p className="text-gray-400 text-sm">Update and manage your account details</p>
++                                        </div>
++                                        <button
++                                            onClick={handleEditToggle}
++                                            className="bg-tronix-primary/20 text-tronix-primary hover:bg-tronix-primary hover:text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-lg shadow-tronix-primary/10">
++                                            {isEditing ? 'Cancel Edit' : 'Edit Profile'}
++                                        </button>
+                                     </div>
+-                                    <div>
+-                                        <label className="block text-gray-400 text-sm mb-2">Email Address</label>
+-                                        <input
+-                                            type="email"
+-                                            value={user?.email}
+-                                            disabled
+-                                            className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-3 text-white opacity-50 cursor-not-allowed"
+-                                        />
++
++                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
++                                        {/* Profile Picture Upload Field */}
++                                        {isEditing && (
++                                            <div className="bg-white/5 border border-white/5 p-5 rounded-xl transition-colors md:col-span-2">
++                                                <label className="flex items-center gap-2 text-gray-400 text-sm font-medium mb-3">
++                                                    <Camera size={16} className="text-tronix-primary" />
++                                                    Profile Picture
++                                                </label>
++                                                <div className="flex items-center gap-6">
++                                                    <div className="w-24 h-24 rounded-full overflow-hidden bg-black/40 border border-white/20 flex-shrink-0 flex items-center justify-center">
++                                                        {editForm.profile_picture ? (
++                                                            <img src={editForm.profile_picture} alt="Preview" className="w-full h-full object-cover" />
++                                                        ) : (
++                                                            <User size={32} className="text-gray-500" />
++                                                        )}
++                                                    </div>
++                                                    <div className="flex-1">
++                                                        <input
++                                                            type="file"
++                                                            accept="image/*"
++                                                            id="avatar-upload"
++                                                            className="hidden"
++                                                            onChange={handleImageUpload}
++                                                            disabled={uploadingImage}
++                                                        />
++                                                        <label
++                                                            htmlFor="avatar-upload"
++                                                            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${uploadingImage ? 'bg-white/5 text-gray-500 cursor-not-allowed' : 'bg-tronix-primary/20 text-tronix-primary hover:bg-tronix-primary hover:text-white border border-tronix-primary/30'}`}
++                                                        >
++                                                            <Upload size={16} />
++                                                            {uploadingImage ? 'Uploading...' : 'Choose new image'}
++                                                        </label>
++                                                        <p className="text-xs text-gray-500 mt-2">Recommended: Square image, max 2MB.</p>
++                                                    </div>
++                                                </div>
++                                            </div>
++                                        )}
++
++                                        {/* Name Field */}
++                                        <div className="bg-white/5 border border-white/5 p-5 rounded-xl hover:bg-white/10 transition-colors group">
++                                            <label className="flex items-center gap-2 text-gray-400 text-sm font-medium mb-3">
++                                                <User size={16} className="text-tronix-primary group-hover:scale-110 transition-transform" />
++                                                Full Name
++                                            </label>
++                                            {isEditing ? (
++                                                <input
++                                                    type="text"
++                                                    value={editForm.full_name}
++                                                    onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
++                                                    className="w-full bg-black/40 border border-white/20 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-tronix-primary"
++                                                />
++                                            ) : (
++                                                <div className="text-lg font-semibold text-white">
++                                                    {user?.full_name || 'Not provided'}
++                                                </div>
++                                            )}
++                                        </div>
++
++                                        {/* Email Field */}
++                                        <div className="bg-white/5 border border-white/5 p-5 rounded-xl hover:bg-white/10 transition-colors group">
++                                            <label className="flex items-center gap-2 text-gray-400 text-sm font-medium mb-3">
++                                                <Mail size={16} className="text-tronix-primary group-hover:scale-110 transition-transform" />
++                                                Email Address
++                                            </label>
++                                            <div className="text-lg font-semibold text-white opacity-70">
++                                                {user?.email}
++                                            </div>
++                                            <div className="mt-2 text-xs text-emerald-400 flex items-center gap-1">
++                                                <CheckCircle size={12} /> Verified (Cannot Edit)
++                                            </div>
++                                        </div>
++
++                                        {/* Password Field (Only in edit mode) */}
++                                        {isEditing && (
++                                            <div className="bg-white/5 border border-white/5 p-5 rounded-xl hover:bg-white/10 transition-colors group md:col-span-2">
++                                                <label className="flex items-center gap-2 text-gray-400 text-sm font-medium mb-3">
++                                                    <ShieldCheck size={16} className="text-tronix-primary group-hover:scale-110 transition-transform" />
++                                                    Set New Password
++                                                </label>
++                                                <div className="relative">
++                                                    <input
++                                                        type={showPassword ? "text" : "password"}
++                                                        placeholder="Leave blank to keep current password"
++                                                        value={editForm.password}
++                                                        onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
++                                                        className="w-full bg-black/40 border border-white/20 rounded-lg px-4 pr-10 py-2 text-white focus:outline-none focus:border-tronix-primary"
++                                                    />
++                                                    <button
++                                                        type="button"
++                                                        onClick={() => setShowPassword(!showPassword)}
++                                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
++                                                    >
++                                                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
++                                                    </button>
++                                                </div>
++                                            </div>
++                                        )}
++
++                                        {/* Security & Role Field */}
++                                        <div className="bg-white/5 border border-white/5 p-5 rounded-xl hover:bg-white/10 transition-colors group">
++                                            <label className="flex items-center gap-2 text-gray-400 text-sm font-medium mb-3">
++                                                <ShieldCheck size={16} className="text-tronix-accent group-hover:scale-110 transition-transform" />
++                                                Account Role
++                                            </label>
++                                            <div className="mt-1">
++                                                <span className="inline-flex items-center gap-1.5 bg-tronix-primary/20 border border-tronix-primary/30 text-tronix-primary px-3 py-1 rounded-full text-sm font-bold uppercase tracking-wider shadow-sm">
++                                                    {user?.role}
++                                                </span>
++                                            </div>
++                                        </div>
++
++                                        {/* Member Since Field (Mocked) */}
++                                        <div className="bg-white/5 border border-white/5 p-5 rounded-xl hover:bg-white/10 transition-colors group">
++                                            <label className="flex items-center gap-2 text-gray-400 text-sm font-medium mb-3">
++                                                <Calendar size={16} className="text-tronix-primary group-hover:scale-110 transition-transform" />
++                                                Member Since
++                                            </label>
++                                            <div className="text-lg font-semibold text-white">
++                                                {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
++                                            </div>
++                                            <div className="mt-2 text-xs text-gray-500">
++                                                Joined recently
++                                            </div>
++                                        </div>
+                                     </div>
+-                                    <div>
+-                                        <label className="block text-gray-400 text-sm mb-2">Role</label>
+-                                        <span className="inline-block bg-tronix-primary/20 text-tronix-primary px-3 py-1 rounded-lg text-sm uppercase font-bold">
+-                                            {user?.role}
+-                                        </span>
++
++                                    {/* Action Buttons Layer */}
++                                    {isEditing && (
++                                        <div className="mt-8 flex justify-end relative z-10 transition-all">
++                                            <button
++                                                onClick={handleUpdateProfile}
++                                                disabled={updating}
++                                                className="bg-tronix-primary text-white hover:bg-violet-600 px-8 py-3 rounded-xl font-bold shadow-lg shadow-tronix-primary/20 transition-all disabled:opacity-50">
++                                                {updating ? 'Saving Changes...' : 'Save Profile Changes'}
++                                            </button>
++                                        </div>
++                                    )}
++
++                                    {/* Danger Zone */}
++                                    <div className="mt-12 pt-8 border-t border-red-500/10 relative z-10">
++                                        <h3 className="text-lg font-bold text-red-400 mb-4 flex items-center gap-2">
++                                            <XCircle size={18} /> Danger Zone
++                                        </h3>
++                                        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between bg-red-500/5 border border-red-500/10 p-5 rounded-xl">
++                                            <div>
++                                                <p className="text-white font-medium">Delete Account</p>
++                                                <p className="text-gray-400 text-sm mt-1">Once you delete your account, there is no going back. Please be certain.</p>
++                                            </div>
++                                            <button className="flex-shrink-0 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white px-5 py-2.5 rounded-lg text-sm font-bold transition-colors border border-red-500/20">
++                                                Delete Account
++                                            </button>
++                                        </div>
+                                     </div>
+                                 </div>
+                             </div>
+                         )}
+-                    </div>
+-                </div>
+-            </div>
+-        </div>
++                    </div >
++                </div >
++            </div >
++        </div >
+     );
+ };
+ 
+
+========================================
+FILE: vite.config.js
+========================================
+diff --git a/vite.config.js b/vite.config.js
+index 8b0f57b..201c6d3 100644
+--- a/vite.config.js
++++ b/vite.config.js
+@@ -4,4 +4,5 @@ import react from '@vitejs/plugin-react'
+ // https://vite.dev/config/
+ export default defineConfig({
+   plugins: [react()],
++  base: '/e-commerse/',
+ })
