@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Package, ChevronLeft, CheckCircle, Clock, XCircle, FileText, Truck, CreditCard, User, Check, Calendar } from 'lucide-react';
 import toast from 'react-hot-toast';
 import client from '../api/client';
@@ -58,14 +57,14 @@ const OrderDetails = () => {
                                 Order #order_tronix_{String(order.id).padStart(4, '0')}
                             </p>
                         </div>
-                        <a
-                            href={`/invoice/${order.id}`}
+                        <Link
+                            to={`/invoice/${order.id}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg border border-white/10 text-sm font-medium transition-colors"
                         >
                             <FileText size={18} /> View Invoice
-                        </a>
+                        </Link>
                     </div>
 
                     <div className="p-6 md:p-8">

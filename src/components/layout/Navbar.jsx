@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Search, ShoppingCart, User, Heart, Menu, X, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import SearchOverlay from '../search/SearchOverlay';
@@ -7,6 +7,7 @@ import SearchBar from '../search/SearchBar';
 import { useCart } from '../../context/CartContext';
 
 const Navbar = () => {
+    const navigate = useNavigate();
     const [isOpen, setIsOpen] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [user, setUser] = useState(null);
@@ -41,7 +42,7 @@ const Navbar = () => {
         localStorage.removeItem('tronix365_cart');
         localStorage.removeItem('tronix365_wishlist');
         setUser(null);
-        window.location.href = '/login'; // Force strict reload & redirect
+        navigate('/login'); // Use navigate to respect the basename in App.jsx
     };
 
     return (

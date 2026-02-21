@@ -65,9 +65,9 @@ const Footer = () => {
                             <span className="absolute -bottom-2 left-0 w-1/2 h-0.5 bg-tronix-primary rounded-full"></span>
                         </h3>
                         <ul className="space-y-3">
-                            <li><a href="/#about" className="group flex items-center text-gray-400 hover:text-white text-sm transition-colors"><ChevronRight size={16} className="text-tronix-primary opacity-0 group-hover:opacity-100 -ml-4 group-hover:mx-1 transition-all" /> About Us</a></li>
-                            <li><a href="/#products" className="group flex items-center text-gray-400 hover:text-white text-sm transition-colors"><ChevronRight size={16} className="text-tronix-primary opacity-0 group-hover:opacity-100 -ml-4 group-hover:mx-1 transition-all" /> Shop Products</a></li>
-                            <li><a href="/#contact" className="group flex items-center text-gray-400 hover:text-white text-sm transition-colors"><ChevronRight size={16} className="text-tronix-primary opacity-0 group-hover:opacity-100 -ml-4 group-hover:mx-1 transition-all" /> Contact Us</a></li>
+                            <li><a href="#about" className="group flex items-center text-gray-400 hover:text-white text-sm transition-colors"><ChevronRight size={16} className="text-tronix-primary opacity-0 group-hover:opacity-100 -ml-4 group-hover:mx-1 transition-all" /> About Us</a></li>
+                            <li><a href="#products" className="group flex items-center text-gray-400 hover:text-white text-sm transition-colors"><ChevronRight size={16} className="text-tronix-primary opacity-0 group-hover:opacity-100 -ml-4 group-hover:mx-1 transition-all" /> Shop Products</a></li>
+                            <li><a href="#contact" className="group flex items-center text-gray-400 hover:text-white text-sm transition-colors"><ChevronRight size={16} className="text-tronix-primary opacity-0 group-hover:opacity-100 -ml-4 group-hover:mx-1 transition-all" /> Contact Us</a></li>
                             <li><Link to="/terms" className="group flex items-center text-gray-400 hover:text-white text-sm transition-colors"><ChevronRight size={16} className="text-tronix-primary opacity-0 group-hover:opacity-100 -ml-4 group-hover:mx-1 transition-all" /> Terms & Conditions</Link></li>
                         </ul>
                     </div>

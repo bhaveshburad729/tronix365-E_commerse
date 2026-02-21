@@ -86,8 +86,8 @@ const UserDashboard = () => {
         localStorage.removeItem('tronix_user');
         localStorage.removeItem('user');
         localStorage.removeItem('tronix365_cart');
-        localStorage.removeItem('tronix365_wishlist');
-        window.location.href = '/login';
+        setUser(null);
+        navigate('/login');
     };
 
     const handleEditToggle = () => {
@@ -255,15 +255,15 @@ const UserDashboard = () => {
                                                                 {order.created_at ? new Date(order.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}
                                                             </span>
                                                         </h3>
-                                                        <a
-                                                            href={`/invoice/${order.id}`}
+                                                        <Link
+                                                            to={`/invoice/${order.id}`}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
                                                             className="text-blue-400 hover:text-blue-300 transition-colors text-sm mt-0.5 inline-flex items-center gap-1"
                                                         >
                                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /><line x1="16" x2="8" y1="13" y2="13" /><line x1="16" x2="8" y1="17" y2="17" /><line x1="10" x2="8" y1="9" y2="9" /></svg>
                                                             Download Invoice
-                                                        </a>
+                                                        </Link>
                                                     </div>
                                                 </div>
 

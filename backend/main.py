@@ -551,8 +551,12 @@ async def payment_callback(
         if order:
             order.status = "tampered"
             db.commit()
+        frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip('/')
+        if "/e-commerse" not in frontend_url:
+            frontend_url = f"{frontend_url}/e-commerse"
+            
         return RedirectResponse(
-            url=f"{os.getenv('FRONTEND_URL', 'http://localhost:5173')}/payment/failure?txnid={txnid}&reason=tampered", 
+            url=f"{frontend_url}/payment/failure?txnid={txnid}&reason=tampered", 
             status_code=303
         )
 
@@ -582,7 +586,11 @@ async def payment_callback(
             order.status = "failed"
             db.commit()
     
-    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip('/')
+    # If the app is in a subdirectory but FRONTEND_URL is just the root, we append it.
+    # For Tronix365, it's always /e-commerse
+    if "/e-commerse" not in frontend_url:
+        frontend_url = f"{frontend_url}/e-commerse"
     
     # Redirect to Frontend
     if status == "success":
