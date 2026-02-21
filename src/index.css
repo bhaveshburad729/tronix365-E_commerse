@@ -33,3 +33,9 @@
     @apply bg-tronix-bg text-tronix-text font-sans antialiased selection:bg-tronix-primary selection:text-white;
   }
 }
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
