@@ -26,9 +26,13 @@ Base.metadata.create_all(bind=engine)
 app = FastAPI(title="Tronix365 API", version="0.1.0")
 
 # CORS Setup
-# CORS Setup
-origins_str = os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000")
-origins = [origin.strip() for origin in origins_str.split(",")]
+# CORS Setup - Hardcoded for Production Safety
+origins = [
+    "https://www.tronix365.in",
+    "https://tronix365.in",
+    "http://localhost:5173",
+    "http://localhost:3000"
+]
 
 app.add_middleware(
     CORSMiddleware,
