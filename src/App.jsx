@@ -13,6 +13,8 @@ import ProductDetails from './pages/ProductDetails';
 import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
 import Wishlist from './pages/Wishlist';
+import OrderDetails from './pages/OrderDetails';
+import Invoice from './pages/Invoice';
 import { CartProvider } from './context/CartContext';
 import { WishlistProvider } from './context/WishlistContext';
 import { About, Contact, Terms, Privacy } from './pages/InfoPages';
@@ -40,7 +42,7 @@ const Placeholder = ({ title }) => (
 
 function App() {
   return (
-    <Router>
+    <Router basename="/e-commerse">
       <CartProvider>
         <WishlistProvider>
           <ScrollToTop />
@@ -59,6 +61,8 @@ function App() {
                 <Route path="/signup" element={<Signup />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/dashboard" element={<UserDashboard />} />
+                <Route path="/order/:id" element={<OrderDetails />} />
+                <Route path="/invoice/:id" element={<Invoice />} />
                 <Route path="/admin" element={<AdminDashboard />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/contact" element={<Contact />} />
