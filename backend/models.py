@@ -1,10 +1,10 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, JSON, Boolean
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, JSON, Boolean, DateTime
+from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from database import Base
 from pydantic import BaseModel
 from typing import List, Optional, Dict
-
-# SQLAlchemy Models (Database Tables)
+from datetime import datetime# SQLAlchemy Models (Database Tables)
 class ProductDB(Base):
     __tablename__ = "products"
 
@@ -32,6 +32,7 @@ class UserDB(Base):
     is_active = Column(Boolean, default=True)
     is_2fa_enabled = Column(Boolean, default=False)
     two_factor_secret = Column(String, nullable=True)
+    profile_picture = Column(String, nullable=True)
 
 class OrderItemDB(Base):
     __tablename__ = "order_items"
@@ -52,6 +53,7 @@ class OrderDB(Base):
     customer_email = Column(String, index=True)
     total_amount = Column(Float)
     status = Column(String, default="pending")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationship to OrderItemDB
     items = relationship("OrderItemDB", back_populates="order", cascade="all, delete-orphan")
@@ -71,7 +73,7 @@ class ProductBase(BaseModel):
     description: str
     price: float
     category: str
-    image: str
+    image: Optional[str] = None
     specs: Optional[Dict[str, str]] = None
     skv: Optional[str] = None
     mrp: Optional[float] = None
@@ -103,6 +105,8 @@ class Product(ProductBase):
 class OrderItem(BaseModel):
     product_id: int
     quantity: int
+    price_at_purchase: Optional[float] = None
+    product: Optional[Product] = None
     class Config:
         from_attributes = True
 
@@ -114,6 +118,9 @@ class OrderCreate(BaseModel):
 
 class Order(OrderCreate):
     id: int
+    full_name: Optional[str] = None
+    txnid: Optional[str] = None
+    created_at: Optional[datetime] = None
     class Config:
         from_attributes = True
 
@@ -128,10 +135,16 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
 
+class UserUpdate(BaseModel):
+    full_name: Optional[str] = None
+    password: Optional[str] = None
+    profile_picture: Optional[str] = None
+
 class UserResponse(UserBase):
     id: int
     role: str
     is_active: bool
+    profile_picture: Optional[str] = None
     
     class Config:
         from_attributes = True
@@ -172,3 +185,12 @@ class ReviewResponse(ReviewCreate):
     created_at: str
     class Config:
         from_attributes = True
+
+class ContactMessageDB(Base):
+    __tablename__ = "contact_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String)
+    email = Column(String)
+    message = Column(String)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
