@@ -38,8 +38,10 @@ const Navbar = () => {
         localStorage.removeItem('tronix_token');
         localStorage.removeItem('tronix_user');
         localStorage.removeItem('user'); // Clean up old key
+        localStorage.removeItem('tronix365_cart');
+        localStorage.removeItem('tronix365_wishlist');
         setUser(null);
-        window.location.reload(); // Force refresh to clear state
+        window.location.href = '/login'; // Force strict reload & redirect
     };
 
     return (
@@ -88,7 +90,7 @@ const Navbar = () => {
                                 <div className="flex items-center gap-2">
                                     <Link to={user.role === 'admin' ? '/admin' : '/dashboard'} className="flex items-center gap-2 bg-white/5 hover:bg-white/10 px-4 py-2 rounded-full border border-white/10 transition-all">
                                         <User size={18} className="text-tronix-accent" />
-                                        <span className="text-sm">{user.name || user.full_name?.split(' ')[0] || 'User'}</span>
+                                        <span className="text-sm">{user.full_name || user.name || 'User'}</span>
                                     </Link>
                                     <button
                                         onClick={handleLogout}
@@ -136,7 +138,7 @@ const Navbar = () => {
                                     <div className="pt-4 flex items-center justify-between border-t border-white/5 mt-2">
                                         <div className="flex items-center gap-3">
                                             <Link to={user.role === 'admin' ? '/admin' : '/dashboard'} className="flex items-center gap-2 text-tronix-primary font-medium">
-                                                <User size={20} /> {user.name || user.full_name?.split(' ')[0] || 'User'}
+                                                <User size={20} /> {user.full_name || user.name || 'User'}
                                             </Link>
                                             <button onClick={handleLogout} className="text-gray-400 hover:text-red-500">
                                                 <LogOut size={20} />
