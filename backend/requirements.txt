@@ -7,3 +7,4 @@ python-dotenv
 pydantic
 requests
 python-multipart
+psycopg2-binary
