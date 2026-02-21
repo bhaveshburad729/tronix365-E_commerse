@@ -2,8 +2,8 @@ from sqlalchemy import Column, Integer, String, Float, ForeignKey, JSON, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from database import Base
-from pydantic import BaseModel
-from typing import List, Optional, Dict
+from pydantic import BaseModel, field_validator
+from typing import List, Optional, Dict, Any
 from datetime import datetime# SQLAlchemy Models (Database Tables)
 class ProductDB(Base):
     __tablename__ = "products"
@@ -80,6 +80,28 @@ class ProductBase(BaseModel):
     sale_price: Optional[float] = None
     features: Optional[List[str]] = None
     stock: int = 0
+
+    @field_validator('specs', mode='before')
+    @classmethod
+    def parse_specs(cls, v):
+        if isinstance(v, str):
+            import json
+            try:
+                return json.loads(v)
+            except:
+                pass
+        return v
+
+    @field_validator('features', mode='before')
+    @classmethod
+    def parse_features(cls, v):
+        if isinstance(v, str):
+            import json
+            try:
+                return json.loads(v)
+            except:
+                pass
+        return v
 
 class ProductCreate(ProductBase):
     pass
