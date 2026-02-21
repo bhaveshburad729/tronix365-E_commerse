@@ -30,6 +30,21 @@ const Checkout = () => {
         state: ''
     });
 
+    // Auto-fill from logged-in user
+    useEffect(() => {
+        const userStr = localStorage.getItem('tronix_user');
+        if (userStr) {
+            try {
+                const user = JSON.parse(userStr);
+                setAddress(prev => ({
+                    ...prev,
+                    fullName: prev.fullName || user.name || '',
+                    email: prev.email || user.email || ''
+                }));
+            } catch (e) { }
+        }
+    }, []);
+
     const [paymentMethod, setPaymentMethod] = useState('payu');
 
     // Derived Totals
@@ -58,7 +73,7 @@ const Checkout = () => {
 
         setLoading(true);
         try {
-            const user = JSON.parse(localStorage.getItem('user'));
+            const user = JSON.parse(localStorage.getItem('tronix_user'));
             const email = address.email || (user ? user.email : "guest@example.com");
 
             // 1. Get PayU params and hash from backend
