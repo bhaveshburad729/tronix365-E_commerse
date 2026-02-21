@@ -44,8 +44,7 @@ const Login = () => {
             } else {
                 navigate('/');
             }
-            // Force reload to update navbar state (simple fix for now)
-            window.location.reload();
+            // Navigation will trigger re-render of components using the user state
         } catch (error) {
             console.error('Login error:', error);
             const errMsg = error.response?.data?.detail || 'Login failed. Please check your credentials.';
@@ -55,7 +54,6 @@ const Login = () => {
                 alert("Backend offline. Logging in as local admin for demo.");
                 localStorage.setItem('tronix_user', JSON.stringify({ name: "Demo Admin", role: "admin" }));
                 navigate('/admin');
-                window.location.reload();
             } else {
                 alert(errMsg);
             }

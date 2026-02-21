@@ -40,9 +40,11 @@ const Placeholder = ({ title }) => (
   </div>
 );
 
+const basename = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
+
 function App() {
   return (
-    <Router basename="/e-commerse">
+    <Router basename={basename}>
       <CartProvider>
         <WishlistProvider>
           <ScrollToTop />

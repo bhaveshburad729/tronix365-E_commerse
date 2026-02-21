@@ -52,7 +52,6 @@ const Signup = () => {
 
             // Redirect
             navigate('/');
-            window.location.reload(); // To update Navbar state
         } catch (err) {
             console.error("Signup Error:", err);
             const errMsg = err.response?.data?.detail || 'Registration failed';

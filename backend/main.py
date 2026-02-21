@@ -552,7 +552,7 @@ async def payment_callback(
             order.status = "tampered"
             db.commit()
         frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip('/')
-        if "/e-commerse" not in frontend_url:
+        if "tronix365.in" in frontend_url and "/e-commerse" not in frontend_url:
             frontend_url = f"{frontend_url}/e-commerse"
             
         return RedirectResponse(
@@ -588,8 +588,8 @@ async def payment_callback(
     
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173").rstrip('/')
     # If the app is in a subdirectory but FRONTEND_URL is just the root, we append it.
-    # For Tronix365, it's always /e-commerse
-    if "/e-commerse" not in frontend_url:
+    # For Tronix365 production, it's under /e-commerse
+    if "tronix365.in" in frontend_url and "/e-commerse" not in frontend_url:
         frontend_url = f"{frontend_url}/e-commerse"
     
     # Redirect to Frontend
