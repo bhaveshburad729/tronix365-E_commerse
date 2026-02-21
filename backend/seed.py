@@ -22,7 +22,6 @@ def seed_data():
     
     products = [
         {
-            "id": 1,
             "title": "Arduino Uno R3",
             "description": "The classic microcontroller board for your projects. Reliable and easy to use.",
             "price": 450,
@@ -36,7 +35,6 @@ def seed_data():
             "features": ["ATmega328P Microcontroller", "Operating Voltage: 5V", "Input Voltage (recommended): 7-12V", "Digital I/O Pins: 14"]
         },
         {
-            "id": 2,
             "title": "Raspberry Pi 4 Model B (4GB)",
             "description": "A powerful mini-computer for IoT, media centers, and more.",
             "price": 4500,
@@ -50,7 +48,6 @@ def seed_data():
             "features": ["Broadcom BCM2711, Quad core Cortex-A72 (ARM v8) 64-bit SoC @ 1.5GHz", "4GB LPDDR4-3200 SDRAM", "2.4 GHz and 5.0 GHz IEEE 802.11ac wireless"]
         },
         {
-            "id": 3,
             "title": "HC-SR04 Ultrasonic Sensor",
             "description": "Distance measuring module utilizing ultrasonic waves.",
             "price": 80,
@@ -64,7 +61,6 @@ def seed_data():
             "features": ["Power Supply :+5V DC", "Quiescent Current : <2mA", "Working Current: 15mA", "Effectual Angle: <15°", "Ranging Distance : 2cm – 400 cm/1″ – 13ft"]
         },
         {
-            "id": 4,
             "title": "ESP8266 NodeMCU",
             "description": "WiFi enabled microcontroller for IoT applications.",
             "price": 350,
@@ -78,7 +74,6 @@ def seed_data():
             "features": ["Wi-Fi Module - ESP-12E module similar to ESP-12 module but with 6 extra GPIOs", "USB - micro USB port for power, programming and debugging", "Headers - 2x 2.54mm 15-pin header with access to GPIOs, SPI, UART, ADC and power pins"]
         },
         {
-            "id": 5,
             "title": "SG90 Micro Servo Motor",
             "description": "Tiny and lightweight with high output power. Ideal for RC projects.",
             "price": 120,
@@ -92,7 +87,6 @@ def seed_data():
             "features": ["Operating Voltage: 3.0V~7.2V", "Operating Speed: 0.1sec/60degree(4.8V)", "Stall Torque: 1.2kg/cm(4.8V)", "Dead Band Width: 7usec"]
         },
         {
-            "id": 6,
             "title": "Li-Po Battery 3.7V 1000mAh",
             "description": "High capacity rechargeable lithium polymer battery.",
             "price": 400,
@@ -106,7 +100,6 @@ def seed_data():
             "features": ["Voltage: 3.7V", "Capacity: 1000mAh", "Type: Lithium Polymer", "Rechargeable: Yes"]
         },
         {
-            "id": 7,
             "title": "DHT11 Temperature & Humidity Sensor",
             "description": "Basic digital temperature and humidity sensor.",
             "price": 90,
@@ -120,7 +113,6 @@ def seed_data():
             "features": ["Supply Voltage: +5 V", "Temperature Range : 0°C to 50°C", "Humidity Range: 20% to 90%"]
         },
         {
-            "id": 8,
             "title": "OLED Display 0.96 inch",
             "description": "I2C OLED display module for Arduino and Pi.",
             "price": 250,
