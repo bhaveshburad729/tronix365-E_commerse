@@ -56,8 +56,10 @@ const ProductDetails = () => {
     }
 
     const handleAddToCart = () => {
-        addToCart(product, quantity);
-        toast.success(`Added ${quantity} ${product.title} to cart!`);
+        const success = addToCart(product, quantity);
+        if (success) {
+            toast.success(`Added ${quantity} ${product.title} to cart!`);
+        }
     };
 
     return (
@@ -151,7 +153,7 @@ const ProductDetails = () => {
                                     {quantity}
                                 </span>
                                 <button
-                                    onClick={() => setQuantity(quantity + 1)}
+                                    onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
                                     className="px-4 py-2 text-white hover:bg-white/5 transition-colors"
                                 >
                                     +
@@ -180,8 +182,10 @@ const ProductDetails = () => {
                         </div>
                         <button
                             onClick={() => {
-                                addToCart(product, quantity);
-                                navigate('/cart');
+                                const success = addToCart(product, quantity);
+                                if (success) {
+                                    navigate('/cart');
+                                }
                             }}
                             disabled={product.stock === 0}
                             className={`w-full font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2 mb-8 shadow-lg ${product.stock > 0 ? 'bg-green-600 hover:bg-green-700 text-white shadow-green-900/20' : 'bg-gray-700 text-gray-500 cursor-not-allowed'}`}

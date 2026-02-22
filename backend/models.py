@@ -192,18 +192,23 @@ class ReviewDB(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     product_id = Column(Integer, ForeignKey("products.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
+    user_email = Column(String)
     user_name = Column(String)
     rating = Column(Integer)
     comment = Column(String)
     created_at = Column(String) # Store as ISO string for simplicity
 
 class ReviewCreate(BaseModel):
-    user_name: str
     rating: int
     comment: str
 
-class ReviewResponse(ReviewCreate):
+class ReviewResponse(BaseModel):
     id: int
+    rating: int
+    comment: str
+    user_name: str
+    user_email: str
     created_at: str
     class Config:
         from_attributes = True

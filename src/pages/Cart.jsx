@@ -87,7 +87,8 @@ const Cart = () => {
                                     <span className="w-8 text-center text-white font-medium">{item.quantity}</span>
                                     <button
                                         onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                                        className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                                        disabled={item.quantity >= item.stock}
+                                        className={`w-8 h-8 rounded-full bg-white/5 flex items-center justify-center transition-colors ${item.quantity >= item.stock ? 'text-gray-600 cursor-not-allowed' : 'text-gray-400 hover:text-white hover:bg-white/10'}`}
                                     >
                                         <Plus size={14} />
                                     </button>

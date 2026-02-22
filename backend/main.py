@@ -150,7 +150,7 @@ async def delete_product(product_id: int, db: Session = Depends(get_db)):
     return None
 
 @app.post("/products/{product_id}/reviews", response_model=ReviewResponse)
-async def create_review(product_id: int, review: ReviewCreate, db: Session = Depends(get_db)):
+async def create_review(product_id: int, review: ReviewCreate, current_user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
     # Verify product exists
     product = db.query(ProductDB).filter(ProductDB.id == product_id).first()
     if not product:
@@ -158,7 +158,9 @@ async def create_review(product_id: int, review: ReviewCreate, db: Session = Dep
 
     new_review = ReviewDB(
         product_id=product_id,
-        user_name=review.user_name,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        user_name=current_user.full_name or "Anonymous",
         rating=review.rating,
         comment=review.comment,
         created_at=datetime.utcnow().isoformat()

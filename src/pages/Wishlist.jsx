@@ -1,4 +1,5 @@
 import React from 'react';
+import toast from 'react-hot-toast';
 import { motion } from 'framer-motion';
 import { Heart, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -11,8 +12,11 @@ const Wishlist = () => {
     const { addToCart } = useCart();
 
     const handleMoveToCart = (product) => {
-        addToCart(product);
-        removeFromWishlist(product.id);
+        const success = addToCart(product);
+        if (success) {
+            removeFromWishlist(product.id);
+            toast.success(`Moved ${product.title} to cart`);
+        }
     };
 
     return (
@@ -58,7 +62,10 @@ const Wishlist = () => {
                                     </div>
                                 </Link>
                                 <button
-                                    onClick={() => handleMoveToCart(product)}
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        handleMoveToCart(product);
+                                    }}
                                     className="w-full bg-white/5 hover:bg-tronix-primary text-white font-medium py-3 transition-colors flex items-center justify-center gap-2"
                                 >
                                     Move to Cart

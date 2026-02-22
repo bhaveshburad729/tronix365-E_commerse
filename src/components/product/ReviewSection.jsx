@@ -14,6 +14,11 @@ const ReviewSection = ({ productId }) => {
     const [comment, setComment] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
+    // Auth State
+    const user = JSON.parse(localStorage.getItem('user'));
+    const token = localStorage.getItem('token');
+    const isLoggedIn = !!user && !!token;
+
     // Fetch Reviews
     const fetchReviews = async () => {
         try {
@@ -41,14 +46,16 @@ const ReviewSection = ({ productId }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setSubmitting(true);
 
-        const user = JSON.parse(localStorage.getItem('user'));
-        const userName = user ? user.user_name || "Anonymous" : "Guest User";
+        if (!isLoggedIn) {
+            toast.error("You must be logged in to submit a review");
+            return;
+        }
+
+        setSubmitting(true);
 
         try {
             await client.post(`/products/${productId}/reviews`, {
-                user_name: userName,
                 rating,
                 comment
             });
@@ -95,47 +102,58 @@ const ReviewSection = ({ productId }) => {
             {/* Write a Review Form */}
             <div className="bg-tronix-card/50 border border-white/10 rounded-2xl p-6">
                 <h4 className="text-lg font-bold text-white mb-4">Write a Review</h4>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label className="block text-sm text-gray-400 mb-2">Rating</label>
-                        <div className="flex gap-2">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                                <button
-                                    key={star}
-                                    type="button"
-                                    onClick={() => setRating(star)}
-                                    className="focus:outline-none transition-transform hover:scale-110"
-                                >
-                                    <Star
-                                        size={24}
-                                        fill={star <= rating ? "currentColor" : "none"}
-                                        className={star <= rating ? "text-yellow-500" : "text-gray-600 hover:text-yellow-500/50"}
-                                    />
-                                </button>
-                            ))}
+
+                {!isLoggedIn ? (
+                    <div className="bg-white/5 border border-white/10 rounded-xl p-6 text-center">
+                        <User size={32} className="mx-auto mb-3 text-gray-500" />
+                        <p className="text-gray-300 mb-4">Please log in to share your thoughts about this product.</p>
+                        <a href="/login" className="inline-block bg-tronix-primary hover:bg-violet-600 text-white font-medium px-6 py-2 rounded-lg transition-colors">
+                            Log In to Review
+                        </a>
+                    </div>
+                ) : (
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <div>
+                            <label className="block text-sm text-gray-400 mb-2">Rating</label>
+                            <div className="flex gap-2">
+                                {[1, 2, 3, 4, 5].map((star) => (
+                                    <button
+                                        key={star}
+                                        type="button"
+                                        onClick={() => setRating(star)}
+                                        className="focus:outline-none transition-transform hover:scale-110"
+                                    >
+                                        <Star
+                                            size={24}
+                                            fill={star <= rating ? "currentColor" : "none"}
+                                            className={star <= rating ? "text-yellow-500" : "text-gray-600 hover:text-yellow-500/50"}
+                                        />
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                    </div>
 
-                    <div>
-                        <label className="block text-sm text-gray-400 mb-2">Review</label>
-                        <textarea
-                            value={comment}
-                            onChange={(e) => setComment(e.target.value)}
-                            required
-                            placeholder="Share your thoughts about this product..."
-                            rows={3}
-                            className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-tronix-primary outline-none transition-colors resize-none"
-                        />
-                    </div>
+                        <div>
+                            <label className="block text-sm text-gray-400 mb-2">Review</label>
+                            <textarea
+                                value={comment}
+                                onChange={(e) => setComment(e.target.value)}
+                                required
+                                placeholder="Share your thoughts about this product..."
+                                rows={3}
+                                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-tronix-primary outline-none transition-colors resize-none"
+                            />
+                        </div>
 
-                    <button
-                        type="submit"
-                        disabled={submitting}
-                        className="bg-tronix-primary hover:bg-violet-600 text-white font-bold px-6 py-2.5 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {submitting ? 'Submitting...' : <><Send size={16} /> Submit Review</>}
-                    </button>
-                </form>
+                        <button
+                            type="submit"
+                            disabled={submitting}
+                            className="bg-tronix-primary hover:bg-violet-600 text-white font-bold px-6 py-2.5 rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {submitting ? 'Submitting...' : <><Send size={16} /> Submit Review</>}
+                        </button>
+                    </form>
+                )}
             </div>
 
             {/* Reviews List */}
@@ -155,6 +173,7 @@ const ReviewSection = ({ productId }) => {
                                     </div>
                                     <div>
                                         <h5 className="text-white font-medium">{review.user_name}</h5>
+                                        <div className="text-xs text-tronix-muted mb-1">{review.user_email}</div>
                                         <div className="flex text-yellow-500 text-xs mt-1">
                                             {[1, 2, 3, 4, 5].map((star) => (
                                                 <Star

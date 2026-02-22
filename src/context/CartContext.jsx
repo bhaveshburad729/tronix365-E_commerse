@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 
 const CartContext = createContext();
 
@@ -19,9 +20,18 @@ export const CartProvider = ({ children }) => {
     }, [cartItems]);
 
     const addToCart = (product, quantity = 1) => {
+        const existingItem = cartItems.find(item => item.id === product.id);
+        const currentQty = existingItem ? existingItem.quantity : 0;
+        const maxAllowed = product.stock || 0;
+
+        if (currentQty + quantity > maxAllowed) {
+            toast.error(`Only ${maxAllowed} items available in stock`);
+            return false;
+        }
+
         setCartItems(prevItems => {
-            const existingItem = prevItems.find(item => item.id === product.id);
-            if (existingItem) {
+            const itemInCart = prevItems.find(item => item.id === product.id);
+            if (itemInCart) {
                 return prevItems.map(item =>
                     item.id === product.id
                         ? { ...item, quantity: item.quantity + quantity }
@@ -32,6 +42,7 @@ export const CartProvider = ({ children }) => {
                 return [...prevItems, { ...product, quantity, selected: true }];
             }
         });
+        return true;
     };
 
     const removeFromCart = (productId) => {
@@ -40,11 +51,20 @@ export const CartProvider = ({ children }) => {
 
     const updateQuantity = (productId, newQuantity) => {
         if (newQuantity < 1) return;
-        setCartItems(prevItems =>
-            prevItems.map(item =>
-                item.id === productId ? { ...item, quantity: newQuantity } : item
-            )
-        );
+        setCartItems(prevItems => {
+            const item = prevItems.find(i => i.id === productId);
+            if (!item) return prevItems;
+            
+            const maxAllowed = item.stock || 0;
+            if (newQuantity > maxAllowed) {
+                toast.error(`Only ${maxAllowed} items available in stock`);
+                return prevItems; // Do not update if exceeds stock
+            }
+
+            return prevItems.map(i =>
+                i.id === productId ? { ...i, quantity: newQuantity } : i
+            );
+        });
     };
 
     const toggleSelection = (productId) => {
