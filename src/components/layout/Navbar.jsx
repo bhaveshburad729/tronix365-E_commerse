@@ -57,10 +57,12 @@ const Navbar = () => {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center justify-between h-16">
                         {/* Logo */}
-                        <Link to="/" className="flex-shrink-0 flex items-center gap-2">
-                            <div className="w-8 h-8 bg-tronix-primary rounded flex items-center justify-center">
-                                <span className="text-white font-display font-bold text-lg">T</span>
-                            </div>
+                        <Link to="/" className="flex-shrink-0 flex items-center gap-2 group">
+                            <img
+                                src="/vite.svg"
+                                alt="Tronix365 Logo"
+                                className="w-10 h-10 object-contain group-hover:scale-110 transition-transform duration-300"
+                            />
                             <span className="font-display font-bold text-xl tracking-wider text-white">
                                 TRONIX<span className="text-tronix-primary">365</span>
                             </span>

@@ -16,9 +16,11 @@ const Footer = () => {
                     <div className="space-y-6 lg:col-span-1 border-r-0 lg:border-r border-white/5 lg:pr-8">
                         <div>
                             <div className="flex items-center gap-2 mb-2">
-                                <div className="w-10 h-10 bg-gradient-to-br from-tronix-primary to-violet-600 rounded-xl flex items-center justify-center shadow-lg shadow-tronix-primary/20">
-                                    <span className="text-white font-display font-bold text-2xl">T</span>
-                                </div>
+                                <img
+                                    src="/vite.svg"
+                                    alt="Tronix365 Logo"
+                                    className="w-10 h-10 object-contain"
+                                />
                                 <span className="font-display font-bold text-2xl tracking-wider text-white">
                                     TRONIX<span className="text-transparent bg-clip-text bg-gradient-to-r from-tronix-primary to-violet-400">365</span>
                                 </span>
