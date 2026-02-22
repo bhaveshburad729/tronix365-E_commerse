@@ -72,9 +72,10 @@ const Signup = () => {
             <div
                 className="max-w-md w-full space-y-8 glass-card p-8 rounded-2xl border border-white/10 relative z-10"
             >
-                <div>
-                    <h2 className="text-3xl font-display font-bold text-white text-center mb-2">Create Account</h2>
-                    <p className="text-gray-400 text-center">Join the future of electronics</p>
+                <div className="text-center">
+                    <img src="/vite.svg" alt="Tronix365 Logo" className="w-16 h-16 mx-auto mb-4" />
+                    <h2 className="text-3xl font-display font-bold text-white mb-2">Create Account</h2>
+                    <p className="text-gray-400">Join the future of electronics</p>
                 </div>
 
                 {error && (
