@@ -55,9 +55,13 @@ const ReviewSection = ({ productId }) => {
         setSubmitting(true);
 
         try {
+            // Include user_name for backwards compatibility with older backend versions
+            const userName = user ? user.name || "Anonymous" : "Guest User";
+
             await client.post(`/products/${productId}/reviews`, {
                 rating,
-                comment
+                comment,
+                user_name: userName
             });
 
             toast.success('Review submitted successfully!');
@@ -66,7 +70,18 @@ const ReviewSection = ({ productId }) => {
             fetchReviews(); // Refresh list
         } catch (error) {
             console.error('Error submitting review:', error);
-            const errMsg = error.response?.data?.detail || 'Failed to submit review';
+
+            // FastApi returns validation errors as an array, which crashes React Hot Toast
+            let errMsg = 'Failed to submit review';
+            if (error.response?.data?.detail) {
+                const detail = error.response.data.detail;
+                if (Array.isArray(detail)) {
+                    errMsg = detail[0].msg;
+                } else if (typeof detail === 'string') {
+                    errMsg = detail;
+                }
+            }
+
             toast.error(errMsg);
         }
         finally {

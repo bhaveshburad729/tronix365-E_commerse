@@ -149,31 +149,7 @@ async def delete_product(product_id: int, db: Session = Depends(get_db)):
     db.commit()
     return None
 
-@app.post("/products/{product_id}/reviews", response_model=ReviewResponse)
-async def create_review(product_id: int, review: ReviewCreate, current_user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
-    # Verify product exists
-    product = db.query(ProductDB).filter(ProductDB.id == product_id).first()
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
 
-    new_review = ReviewDB(
-        product_id=product_id,
-        user_id=current_user.id,
-        user_email=current_user.email,
-        user_name=current_user.full_name or "Anonymous",
-        rating=review.rating,
-        comment=review.comment,
-        created_at=datetime.utcnow().isoformat()
-    )
-    db.add(new_review)
-    db.commit()
-    db.refresh(new_review)
-    return new_review
-
-@app.get("/products/{product_id}/reviews", response_model=List[ReviewResponse])
-async def get_reviews(product_id: int, db: Session = Depends(get_db)):
-    reviews = db.query(ReviewDB).filter(ReviewDB.product_id == product_id).all()
-    return reviews
 
 from email_utils import send_order_confirmation_email
 
@@ -263,6 +239,32 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     if user is None:
         raise credentials_exception
     return user
+
+@app.post("/products/{product_id}/reviews", response_model=ReviewResponse)
+async def create_review(product_id: int, review: ReviewCreate, current_user: UserDB = Depends(get_current_user), db: Session = Depends(get_db)):
+    # Verify product exists
+    product = db.query(ProductDB).filter(ProductDB.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    new_review = ReviewDB(
+        product_id=product_id,
+        user_id=current_user.id,
+        user_email=current_user.email,
+        user_name=current_user.full_name or "Anonymous",
+        rating=review.rating,
+        comment=review.comment,
+        created_at=datetime.utcnow().isoformat()
+    )
+    db.add(new_review)
+    db.commit()
+    db.refresh(new_review)
+    return new_review
+
+@app.get("/products/{product_id}/reviews", response_model=List[ReviewResponse])
+async def get_reviews(product_id: int, db: Session = Depends(get_db)):
+    reviews = db.query(ReviewDB).filter(ReviewDB.product_id == product_id).all()
+    return reviews
 
 
 
