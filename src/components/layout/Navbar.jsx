@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Search, ShoppingCart, User, Menu, X, LogOut, ChevronDown, Bell, Settings } from 'lucide-react';
+import { Search, ShoppingCart, User, Menu, X, LogOut, Heart } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import logo from '../../assets/logo.png';
 import SearchOverlay from '../search/SearchOverlay';
