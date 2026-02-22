@@ -15,8 +15,8 @@ const ReviewSection = ({ productId }) => {
     const [submitting, setSubmitting] = useState(false);
 
     // Auth State
-    const user = JSON.parse(localStorage.getItem('user'));
-    const token = localStorage.getItem('token');
+    const user = JSON.parse(localStorage.getItem('tronix_user'));
+    const token = localStorage.getItem('tronix_token');
     const isLoggedIn = !!user && !!token;
 
     // Fetch Reviews
