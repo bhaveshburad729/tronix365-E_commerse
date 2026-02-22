@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { Package, Users, DollarSign, TrendingUp, Plus, Image as ImageIcon, Search, X, Check, Edit, Trash2, Loader, Tag, Info, List, Save, Boxes, Calendar, CreditCard, Clock, MapPin, User, Truck } from 'lucide-react';
+import { Package, Users, DollarSign, TrendingUp, Plus, Image as ImageIcon, Search, X, Check, Edit, Trash2, Loader, Tag, Info, List, Save, Boxes, Calendar, CreditCard, Clock, MapPin, User, Truck, Settings, Lock } from 'lucide-react';
 import { products as mockProducts } from '../data/mockData';
 import { motion, AnimatePresence } from 'framer-motion';
 import client from '../api/client';
@@ -18,6 +18,14 @@ const AdminDashboard = () => {
     // Search & Filter State
     const [searchQuery, setSearchQuery] = useState('');
     const [orderStatusFilter, setOrderStatusFilter] = useState('All');
+
+    // Admin Profile States
+    const [profileForm, setProfileForm] = useState({
+        email: JSON.parse(localStorage.getItem('tronix_user') || '{}').email || '',
+        password: '',
+        confirmPassword: ''
+    });
+    const [updatingProfile, setUpdatingProfile] = useState(false);
 
     const filteredProducts = products.filter(p =>
         (p.title && p.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -201,6 +209,40 @@ const AdminDashboard = () => {
         }
     };
 
+    const handleUpdateProfile = async (e) => {
+        e.preventDefault();
+
+        if (profileForm.password && profileForm.password !== profileForm.confirmPassword) {
+            return toast.error("Passwords do not match");
+        }
+
+        setUpdatingProfile(true);
+        try {
+            const payload = {
+                email: profileForm.email,
+            };
+            if (profileForm.password) {
+                payload.password = profileForm.password;
+            }
+
+            const res = await client.put('/profile', payload);
+
+            // Sync with localStorage
+            const user = JSON.parse(localStorage.getItem('tronix_user') || '{}');
+            const updatedUser = { ...user, ...res.data };
+            localStorage.setItem('tronix_user', JSON.stringify(updatedUser));
+
+            toast.success("Profile updated successfully");
+            setProfileForm(prev => ({ ...prev, password: '', confirmPassword: '' }));
+        } catch (error) {
+            console.error("Profile update error:", error);
+            const errMsg = error.response?.data?.detail || "Failed to update profile";
+            toast.error(errMsg);
+        } finally {
+            setUpdatingProfile(false);
+        }
+    };
+
     if (loading) {
         return <div className="min-h-screen pt-24 text-center text-white">Loading dashboard...</div>;
     }
@@ -273,6 +315,12 @@ const AdminDashboard = () => {
                             >
                                 Orders
                             </button>
+                            <button
+                                onClick={() => setActiveTab('settings')}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'settings' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'}`}
+                            >
+                                Settings
+                            </button>
                         </div>
 
                         <div className="relative">
@@ -288,7 +336,7 @@ const AdminDashboard = () => {
                     </div>
 
                     <div className="p-6 flex-1">
-                        {activeTab === 'products' ? (
+                        {activeTab === 'products' && (
                             <>
                                 <table className="w-full text-left text-sm text-gray-400 mb-4">
                                     <thead className="bg-white/5 text-white uppercase font-medium">
@@ -356,7 +404,9 @@ const AdminDashboard = () => {
                                     </div>
                                 )}
                             </>
-                        ) : (
+                        )}
+
+                        {activeTab === 'orders' && (
                             <>
                                 {/* Order Status Tabs */}
                                 <div className="flex flex-wrap gap-2 mb-6">
@@ -453,6 +503,86 @@ const AdminDashboard = () => {
                                     </div>
                                 )}
                             </>
+                        )}
+
+                        {activeTab === 'settings' && (
+                            <div className="max-w-2xl">
+                                <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                                    <Settings className="text-tronix-primary" size={20} /> Admin Account Settings
+                                </h3>
+
+                                <form onSubmit={handleUpdateProfile} className="space-y-6">
+                                    <div className="bg-white/5 border border-white/5 rounded-2xl p-6 space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-300 mb-1.5 pl-1">Admin Email</label>
+                                            <div className="relative">
+                                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
+                                                    <User size={18} />
+                                                </div>
+                                                <input
+                                                    type="email"
+                                                    required
+                                                    value={profileForm.email}
+                                                    onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+                                                    className="w-full bg-black/20 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-white placeholder-gray-600 focus:border-tronix-primary focus:ring-1 focus:ring-tronix-primary focus:bg-white/5 transition-all outline-none"
+                                                />
+                                            </div>
+                                            <p className="mt-2 text-xs text-gray-500">This email is used for admin login and communication.</p>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-300 mb-1.5 pl-1">New Password</label>
+                                                <div className="relative">
+                                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
+                                                        <Lock size={18} />
+                                                    </div>
+                                                    <input
+                                                        type="password"
+                                                        placeholder="Leave blank to keep current"
+                                                        value={profileForm.password}
+                                                        onChange={(e) => setProfileForm({ ...profileForm, password: e.target.value })}
+                                                        className="w-full bg-black/20 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-white placeholder-gray-600 focus:border-tronix-primary focus:ring-1 focus:ring-tronix-primary focus:bg-white/5 transition-all outline-none"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-300 mb-1.5 pl-1">Confirm New Password</label>
+                                                <div className="relative">
+                                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
+                                                        <Check size={18} />
+                                                    </div>
+                                                    <input
+                                                        type="password"
+                                                        placeholder="Confirm your new password"
+                                                        value={profileForm.confirmPassword}
+                                                        onChange={(e) => setProfileForm({ ...profileForm, confirmPassword: e.target.value })}
+                                                        className="w-full bg-black/20 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-white placeholder-gray-600 focus:border-tronix-primary focus:ring-1 focus:ring-tronix-primary focus:bg-white/5 transition-all outline-none"
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex justify-end">
+                                        <button
+                                            type="submit"
+                                            disabled={updatingProfile}
+                                            className="bg-tronix-primary hover:bg-violet-600 text-white font-bold px-8 py-3 rounded-xl transition-all shadow-lg shadow-violet-500/25 flex items-center gap-2 disabled:opacity-50"
+                                        >
+                                            {updatingProfile ? (
+                                                <>
+                                                    <Loader className="animate-spin" size={18} /> Updating...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Save size={18} /> Save Settings
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
                         )}
                     </div>
                 </div>

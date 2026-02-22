@@ -159,6 +159,7 @@ class UserCreate(UserBase):
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
+    email: Optional[str] = None
     password: Optional[str] = None
     profile_picture: Optional[str] = None
 

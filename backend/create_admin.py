@@ -13,8 +13,8 @@ def create_admin():
             return
 
         print("No admin found. Creating one...")
-        email = "admin@tronix365.com"
-        password = "adminpassword123"
+        email = "bhavesh729@gmail.com"
+        password = "bhavesh729"
         hashed_password = get_password_hash(password)
         
         new_admin = UserDB(
