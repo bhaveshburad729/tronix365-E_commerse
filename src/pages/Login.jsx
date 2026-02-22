@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { User, Lock, Mail, Github, Chrome, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import client from '../api/client';
+import logo from '../assets/logo.png';
 
 const Login = () => {
     const [isAdmin, setIsAdmin] = useState(false);
@@ -76,7 +77,7 @@ const Login = () => {
                 className="w-full max-w-md relative z-10 glass-card p-8 rounded-2xl border border-white/10"
             >
                 <div className="text-center mb-8">
-                    <img src="/vite.svg" alt="Tronix365 Logo" className="w-16 h-16 mx-auto mb-4" />
+                    <img src={logo} alt="Tronix365 Logo" className="w-16 h-16 mx-auto mb-4" />
                     <h1 className="text-3xl font-display font-bold text-white mb-2">Welcome Back</h1>
                     <p className="text-tronix-muted text-sm">Sign in to access your account</p>
                 </div>

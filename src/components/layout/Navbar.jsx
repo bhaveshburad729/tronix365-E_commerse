@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Search, ShoppingCart, User, Heart, Menu, X, LogOut } from 'lucide-react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Search, ShoppingCart, User, Menu, X, LogOut, ChevronDown, Bell, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import logo from '../../assets/logo.png';
 import SearchOverlay from '../search/SearchOverlay';
 import SearchBar from '../search/SearchBar';
 import { useCart } from '../../context/CartContext';
@@ -58,11 +59,9 @@ const Navbar = () => {
                     <div className="flex items-center justify-between h-16">
                         {/* Logo */}
                         <Link to="/" className="flex-shrink-0 flex items-center gap-2 group">
-                            <img
-                                src="/vite.svg"
-                                alt="Tronix365 Logo"
-                                className="w-10 h-10 object-contain group-hover:scale-110 transition-transform duration-300"
-                            />
+                            <div className="w-10 h-10 flex items-center justify-center transition-transform group-hover:scale-110">
+                                <img src={logo} alt="Tronix365 Logo" className="w-full h-full object-contain" />
+                            </div>
                             <span className="font-display font-bold text-xl tracking-wider text-white">
                                 TRONIX<span className="text-tronix-primary">365</span>
                             </span>
