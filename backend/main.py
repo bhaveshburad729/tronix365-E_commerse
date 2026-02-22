@@ -457,12 +457,23 @@ async def initiate_payment(payment: PaymentInitiate, db: Session = Depends(get_d
     db.commit()
     db.refresh(new_order)
 
-    hash_value = generate_payu_hash(key, txnid, str(payment.amount), payment.productinfo, payment.firstname, payment.email, salt)
+    payu_env = os.getenv("PAYU_ENV", "MOCK").upper()
+    if payu_env == "PROD":
+        action_url = "https://secure.payu.in/_payment"
+    elif payu_env == "TEST":
+        action_url = "https://test.payu.in/_payment"
+    else:
+        action_url = f"{os.getenv('BACKEND_URL', 'http://localhost:8000')}/payment/mock-process"
+
+    # Strict formatting to avoid float precision hash mismatch
+    amount_str = f"{payment.amount:.2f}"
+    
+    hash_value = generate_payu_hash(key, txnid, amount_str, payment.productinfo, payment.firstname, payment.email, salt)
     
     return {
         "key": key,
         "txnid": txnid,
-        "amount": payment.amount,
+        "amount": amount_str,
         "productinfo": payment.productinfo,
         "firstname": payment.firstname,
         "email": payment.email,
@@ -470,7 +481,7 @@ async def initiate_payment(payment: PaymentInitiate, db: Session = Depends(get_d
         "surl": f"{os.getenv('BACKEND_URL', 'http://localhost:8000')}/payment/callback", # Success URL
         "furl": f"{os.getenv('BACKEND_URL', 'http://localhost:8000')}/payment/callback", # Failure URL
         "hash": hash_value,
-        "action": os.getenv("PAYU_TEST_URL") if os.getenv("PAYU_ENV") != "TEST" else f"{os.getenv('BACKEND_URL', 'http://localhost:8000')}/payment/mock-process"
+        "action": action_url
     }
 
 @app.post("/payment/mock-process")
