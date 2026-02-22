@@ -49,6 +49,7 @@ const Signup = () => {
                 role: data.role,
                 email: formData.email
             }));
+            window.dispatchEvent(new Event('storage'));
 
             // Redirect
             navigate('/');

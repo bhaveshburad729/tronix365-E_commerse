@@ -38,6 +38,7 @@ const Login = () => {
                 role: data.role,
                 email: email
             }));
+            window.dispatchEvent(new Event('storage'));
 
             if (data.role === 'admin') {
                 navigate('/admin');

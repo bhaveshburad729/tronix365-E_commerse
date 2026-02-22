@@ -91,7 +91,7 @@ const Navbar = () => {
                                 <div className="flex items-center gap-2">
                                     <Link to={user.role === 'admin' ? '/admin' : '/dashboard'} className="flex items-center gap-2 bg-white/5 hover:bg-white/10 px-4 py-2 rounded-full border border-white/10 transition-all">
                                         <User size={18} className="text-tronix-accent" />
-                                        <span className="text-sm">{user.full_name || user.name || 'User'}</span>
+                                        <span className="text-sm">{user.role === 'admin' ? 'System Manager' : (user.full_name || user.name || 'User')}</span>
                                     </Link>
                                     <button
                                         onClick={handleLogout}
