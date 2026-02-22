@@ -8,117 +8,234 @@ from models import ProductDB
 # Ensure tables exist
 Base.metadata.create_all(bind=engine)
 
-def import_products(csv_file_path):
+def import_products(csv_file_path, reset=False):
     db = SessionLocal()
     try:
         if not os.path.exists(csv_file_path):
             print(f"Error: File not found at {csv_file_path}")
             return
 
-        with open(csv_file_path, mode='r', encoding='utf-8') as csvfile:
+        if reset:
+            print("Reset mode enabled. Wiping products table...")
+            # Check for existing orders
+            from models import OrderItemDB, OrderDB, ReviewDB
+            order_items_count = db.query(OrderItemDB).count()
+            if order_items_count > 0:
+                print(f"Warning: {order_items_count} order items exist in database.")
+                # Since this script might run in a non-interactive shell,
+                # we'll assume the user wants a full wipe if they used --reset.
+                # In a real CLI we'd ask, but here we prioritize execution.
+                db.query(OrderItemDB).delete()
+                db.query(OrderDB).delete()
+                print("Wiped orders and order items to maintain integrity.")
+            
+            # Wipe reviews too just in case
+            db.query(ReviewDB).delete()
+            db.query(ProductDB).delete()
+            db.commit()
+            print("Products and associated data wiped successfully.\n")
+
+        # Try common encodings to handle different CSV sources (Excel/Windows)
+        encodings = ['utf-8-sig', 'cp1252', 'latin-1']
+        csvfile = None
+        
+        for encoding in encodings:
+            try:
+                # Open with the current encoding trial
+                temp_file = open(csv_file_path, mode='r', encoding=encoding)
+                # Try reading a few lines to verify encoding
+                temp_file.read(1024)
+                temp_file.seek(0)
+                csvfile = temp_file
+                print(f"Detected encoding: {encoding}")
+                break
+            except (UnicodeDecodeError, PermissionError):
+                if 'temp_file' in locals() and temp_file:
+                    temp_file.close()
+                continue
+        
+        if not csvfile:
+            print(f"Error: Could not decode the file with any common encoding (UTF-8, CP1252). Please ensure it is saved as a standard CSV.")
+            return
+
+        with csvfile:
             reader = csv.DictReader(csvfile)
             
             count = 0
             updated = 0
             
-            for row in reader:
-                # 1. Parse Fields
-                skv = row['skv'].strip()
-                title = row['title'].strip()
-                category = row['category'].strip()
+            rows = list(reader)
+            print(f"Total rows to process: {len(rows)}")
+
+            for row in rows:
+                # Clean row: lower case keys, strip values
+                row = {str(k).strip().lower(): str(v).strip() for k, v in row.items() if k}
                 
-                # Numeric fields (handle empty strings)
-                price = float(row['price']) if row['price'] else 0.0
-                mrp = float(row['mrp']) if row['mrp'] else None
-                sale_price = float(row['sale_price']) if row['sale_price'] else None
-                stock = int(row['stock']) if row['stock'] else 0
+                # 1. Identity Fields
+                row_id = row.get('id', '')
+                skv = row.get('skv', '')
+                title = row.get('title', '')
                 
-                description = row['description'].strip()
-                image = row['image'].strip()
-                
-                # 2. Parse Lists (Features) - Intelligent Parsing (JSON > Pipe > Comma)
-                features_raw = row['features'].strip()
-                features_list = []
-                
-                if features_raw:
-                    import json
-                    try:
-                        # Try parsing as JSON first (e.g., ["Feat1", "Feat2"])
-                        decoded = json.loads(features_raw)
-                        if isinstance(decoded, list):
-                            features_list = [str(item).strip() for item in decoded if str(item).strip()]
-                    except json.JSONDecodeError:
-                        # Fallback to delimiters
-                        if '|' in features_raw:
-                            delimiter = '|'
-                        elif ',' in features_raw:
-                            delimiter = ','
+                if not any([row_id, skv, title]):
+                    continue
+
+                try:
+                    # 2. Find Existing Product (ID > SKV > Title)
+                    existing_product = None
+                    if row_id and row_id.isdigit():
+                        existing_product = db.get(ProductDB, int(row_id))
+                    
+                    if not existing_product and skv:
+                        existing_product = db.query(ProductDB).filter(ProductDB.skv == skv).first()
+                    
+                    if not existing_product and title:
+                        existing_product = db.query(ProductDB).filter(ProductDB.title == title).first()
+
+                    # 3. Process Image
+                    image_val = row.get('image', '')
+                    final_image_path = "https://via.placeholder.com/400x400?text=No+Image"
+                    
+                    if image_val:
+                        if image_val.startswith('http'):
+                            final_image_path = image_val
                         else:
-                            delimiter = None # Treat as single item
+                            # Search in components folder
+                            import shutil
+                            source_path = None
+                            # Possible extensions in components folder
+                            for ext in ['', '.jpeg', '.jpg', '.png']:
+                                test_path = os.path.join("components", image_val + ext)
+                                if os.path.exists(test_path) and os.path.isfile(test_path):
+                                    source_path = test_path
+                                    break
+                            
+                            if source_path:
+                                filename = os.path.basename(source_path)
+                                dest_path = os.path.join("uploads", filename)
+                                os.makedirs("uploads", exist_ok=True)
+                                shutil.copy2(source_path, dest_path)
+                                final_image_path = f"/uploads/{filename}"
+                            else:
+                                if existing_product:
+                                    final_image_path = existing_product.image
+                                else:
+                                    final_image_path = "https://via.placeholder.com/400x400?text=No+Image"
+
+                    # 4. Handle Updates or Creation
+                    if existing_product:
+                        # Only update if field is provided and NOT empty
+                        if title: existing_product.title = title
+                        if row.get('category'): existing_product.category = row['category']
+                        if row.get('description'): existing_product.description = row['description']
+                        if final_image_path: existing_product.image = final_image_path
+                        if skv: existing_product.skv = skv
                         
-                        if delimiter:
-                            features_list = [f.strip() for f in features_raw.split(delimiter) if f.strip()]
-                        else:
-                             features_list = [features_raw.strip()]
-                
-                # 3. Parse Specs (Dictionary) - Separated by pipe |, key:value
-                specs_raw = row['specs'].strip()
-                specs_dict = {}
-                if specs_raw:
-                    items = specs_raw.split('|')
-                    for item in items:
-                        if ':' in item:
-                            k, v = item.split(':', 1)
-                            specs_dict[k.strip()] = v.strip()
-                
-                # 4. Check if Product Exists (by SKV)
-                existing_product = db.query(ProductDB).filter(ProductDB.skv == skv).first()
-                
-                if existing_product:
-                    print(f"Updating existing product: {title} ({skv})")
-                    existing_product.title = title
-                    existing_product.category = category
-                    existing_product.price = price
-                    existing_product.mrp = mrp
-                    existing_product.sale_price = sale_price
-                    existing_product.stock = stock
-                    existing_product.description = description
-                    existing_product.image = image
-                    existing_product.features = features_list
-                    existing_product.specs = specs_dict
-                    updated += 1
-                else:
-                    print(f"Creating new product: {title} ({skv})")
-                    new_product = ProductDB(
-                        skv=skv,
-                        title=title,
-                        category=category,
-                        price=price,
-                        mrp=mrp,
-                        sale_price=sale_price,
-                        stock=stock,
-                        description=description,
-                        image=image,
-                        features=features_list,
-                        specs=specs_dict
-                    )
-                    db.add(new_product)
-                    count += 1
+                        # Resilient Numeric Parsing
+                        if row.get('price'): existing_product.price = clean_float(row['price'], existing_product.price)
+                        if row.get('mrp'): existing_product.mrp = clean_float(row['mrp'], existing_product.mrp)
+                        if row.get('sale_price'): existing_product.sale_price = clean_float(row['sale_price'], existing_product.sale_price)
+                        if row.get('stock'): existing_product.stock = clean_int(row['stock'], existing_product.stock)
+                        
+                        # Complex fields
+                        features_raw = row.get('features')
+                        if features_raw: existing_product.features = parse_list(features_raw)
+                        
+                        specs_raw = row.get('specs')
+                        if specs_raw: existing_product.specs = parse_dict(specs_raw)
+                        
+                        db.commit()
+                        updated += 1
+                    else:
+                        new_product = ProductDB(
+                            skv=skv or None,
+                            title=title or "Unnamed Product",
+                            category=row.get('category', 'Uncategorized'),
+                            price=clean_float(row.get('price'), 0.0),
+                            mrp=clean_float(row.get('mrp'), None),
+                            sale_price=clean_float(row.get('sale_price'), None),
+                            stock=clean_int(row.get('stock'), 0),
+                            description=row.get('description', ''),
+                            image=final_image_path,
+                            features=parse_list(row.get('features', '')),
+                            specs=parse_dict(row.get('specs', ''))
+                        )
+                        db.add(new_product)
+                        db.commit()
+                        count += 1
+                        print(f"  + Created: {new_product.title}")
+
+                except Exception as row_error:
+                    db.rollback()
+                    error_msg = str(row_error).split('\n')[0] # Get first line of error
+                    print(f"  ! Error on row '{title or skv}': {error_msg}")
             
-            db.commit()
-            print(f"\nSuccess! Created {count} new products and updated {updated} existing products.")
-            
+            print(f"\nFinished! Created {count} new products and updated {updated} existing products.")
+
     except Exception as e:
-        print(f"An error occurred: {e}")
-        db.rollback()
+        print(f"A critical error occurred: {e}")
     finally:
         db.close()
 
-if __name__ == "__main__":
-    # Default to products_template.csv if no argument provided
-    filename = "products_template.csv"
-    if len(sys.argv) > 1:
-        filename = sys.argv[1]
+def clean_float(val, default):
+    if not val or val == '-': return default
+    try:
+        # Regex to keep only numbers and one decimal point
+        import re
+        numeric_part = re.sub(r'[^\d.]', '', val)
+        return float(numeric_part) if numeric_part else default
+    except:
+        return default
+
+def clean_int(val, default):
+    if not val or val == '-': return default
+    try:
+        import re
+        numeric_part = re.sub(r'[^\d]', '', val)
+        return int(numeric_part) if numeric_part else default
+    except:
+        return default
+
+def parse_list(raw_str):
+    if not raw_str: return []
+    import json
+    try:
+        decoded = json.loads(raw_str)
+        if isinstance(decoded, list):
+            return [str(item).strip() for item in decoded if str(item).strip()]
+    except:
+        pass
+    
+    # Delimiter fallback
+    delimiter = '|' if '|' in raw_str else (',' if ',' in raw_str else None)
+    if delimiter:
+        return [f.strip() for f in raw_str.split(delimiter) if f.strip()]
+    return [raw_str.strip()]
+
+def parse_dict(raw_str):
+    if not raw_str: return {}
+    import json
+    try:
+        decoded = json.loads(raw_str)
+        if isinstance(decoded, dict):
+            return decoded
+    except:
+        pass
         
-    print(f"Importing from {filename}...")
-    import_products(filename)
+    specs_dict = {}
+    items = raw_str.split('|')
+    for item in items:
+        if ':' in item:
+            k, v = item.split(':', 1)
+            specs_dict[k.strip()] = v.strip()
+    return specs_dict
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Import products from a CSV file.")
+    parser.add_argument("csv_file", help="Path to the CSV file")
+    parser.add_argument("--reset", action="store_true", help="Wipe the database before importing")
+    
+    args = parser.parse_args()
+    
+    print(f"Importing from {args.csv_file}...")
+    import_products(args.csv_file, reset=args.reset)
