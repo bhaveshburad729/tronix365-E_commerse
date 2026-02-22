@@ -66,40 +66,43 @@ const Cart = () => {
                                     className="w-5 h-5 accent-tronix-primary bg-white/10 border-white/20 rounded cursor-pointer shrink-0"
                                 />
 
-                                <div className="w-20 h-20 bg-white/5 rounded-lg flex items-center justify-center p-2 shrink-0">
+                                <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white/5 rounded-lg flex items-center justify-center p-2 shrink-0">
                                     <img src={getImageUrl(item.image)} alt={item.title} className={`max-w-full max-h-full object-contain ${item.selected === false ? 'opacity-50 grayscale' : ''}`} />
                                 </div>
 
-                                <div className="flex-1 min-w-0">
-                                    <h3 className={`font-medium truncate ${item.selected === false ? 'text-gray-500' : 'text-white'}`}>{item.title}</h3>
-                                    <p className="text-sm text-gray-400">{item.category}</p>
-                                    <div className={`mt-2 font-bold ${item.selected === false ? 'text-gray-600' : 'text-tronix-accent'}`}>₹{item.price}</div>
-                                </div>
+                                <div className="flex flex-col sm:flex-row flex-1 min-w-0 sm:items-center gap-4">
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className={`font-medium truncate ${item.selected === false ? 'text-gray-500' : 'text-white'}`}>{item.title}</h3>
+                                        <p className="text-sm text-gray-400">{item.category}</p>
+                                        <div className={`mt-2 font-bold ${item.selected === false ? 'text-gray-600' : 'text-tronix-accent'}`}>₹{item.price}</div>
+                                    </div>
 
-                                {/* ... (Quantity controls remain same) ... */}
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                                        className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-                                    >
-                                        <Minus size={14} />
-                                    </button>
-                                    <span className="w-8 text-center text-white font-medium">{item.quantity}</span>
-                                    <button
-                                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                                        disabled={item.quantity >= item.stock}
-                                        className={`w-8 h-8 rounded-full bg-white/5 flex items-center justify-center transition-colors ${item.quantity >= item.stock ? 'text-gray-600 cursor-not-allowed' : 'text-gray-400 hover:text-white hover:bg-white/10'}`}
-                                    >
-                                        <Plus size={14} />
-                                    </button>
-                                </div>
+                                    <div className="flex items-center justify-between sm:justify-end gap-6">
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                                className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                                            >
+                                                <Minus size={14} />
+                                            </button>
+                                            <span className="w-8 text-center text-white font-medium">{item.quantity}</span>
+                                            <button
+                                                onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                                disabled={item.quantity >= item.stock}
+                                                className={`w-8 h-8 rounded-full bg-white/5 flex items-center justify-center transition-colors ${item.quantity >= item.stock ? 'text-gray-600 cursor-not-allowed' : 'text-gray-400 hover:text-white hover:bg-white/10'}`}
+                                            >
+                                                <Plus size={14} />
+                                            </button>
+                                        </div>
 
-                                <button
-                                    onClick={() => removeFromCart(item.id)}
-                                    className="p-2 text-gray-500 hover:text-red-500 transition-colors"
-                                >
-                                    <Trash2 size={18} />
-                                </button>
+                                        <button
+                                            onClick={() => removeFromCart(item.id)}
+                                            className="p-2 text-gray-500 hover:text-red-500 transition-colors"
+                                        >
+                                            <Trash2 size={18} />
+                                        </button>
+                                    </div>
+                                </div>
                             </motion.div>
                         ))}
 

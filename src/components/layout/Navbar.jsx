@@ -58,11 +58,11 @@ const Navbar = () => {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center justify-between h-16">
                         {/* Logo */}
-                        <Link to="/" className="flex-shrink-0 flex items-center gap-2 group">
-                            <div className="w-10 h-10 flex items-center justify-center transition-transform group-hover:scale-110">
+                        <Link to="/" className="flex-shrink-0 flex items-center gap-1.5 sm:gap-2 group">
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center transition-transform group-hover:scale-110">
                                 <img src={logo} alt="Tronix365 Logo" className="w-full h-full object-contain" />
                             </div>
-                            <span className="font-display font-bold text-xl tracking-wider text-white">
+                            <span className="font-display font-bold text-lg sm:text-xl tracking-wider text-white">
                                 TRONIX<span className="text-tronix-primary">365</span>
                             </span>
                         </Link>
@@ -137,42 +137,54 @@ const Navbar = () => {
                                 <Link to="/shop" className="block py-3 text-base font-medium text-gray-300 border-b border-white/5">Shop</Link>
                                 <Link to="/categories" className="block py-3 text-base font-medium text-gray-300 border-b border-white/5">Categories</Link>
                                 {user ? (
-                                    <div className="pt-4 flex items-center justify-between border-t border-white/5 mt-2">
-                                        <div className="flex items-center gap-3">
+                                    <div className="pt-4 border-t border-white/5 mt-2 space-y-4">
+                                        <div className="flex items-center justify-between">
                                             <Link to={user.role === 'admin' ? '/admin' : '/dashboard'} className="flex items-center gap-2 text-tronix-primary font-medium">
-                                                <User size={20} /> {user.full_name || user.name || 'User'}
+                                                <User size={20} /> <span className="truncate max-w-[150px]">{user.full_name || user.name || 'User'}</span>
                                             </Link>
-                                            <button onClick={handleLogout} className="text-gray-400 hover:text-red-500">
+                                            <button onClick={handleLogout} className="text-gray-400 hover:text-red-500 p-2">
                                                 <LogOut size={20} />
                                             </button>
                                         </div>
-                                        <div className="flex gap-4">
-                                            <button onClick={() => { setIsOpen(false); setIsSearchOpen(true); }}><Search size={20} className="text-gray-300" /></button>
-                                            <Link to="/wishlist"><Heart size={20} className="text-gray-300" /></Link>
-                                            <Link to="/cart"><ShoppingCart size={20} className="text-gray-300" /></Link>
+                                        <div className="flex items-center justify-around bg-white/5 rounded-xl p-3">
+                                            <button onClick={() => { setIsOpen(false); setIsSearchOpen(true); }} className="p-2"><Search size={22} className="text-gray-300" /></button>
+                                            <Link to="/wishlist" className="p-2" onClick={() => setIsOpen(false)}><Heart size={22} className="text-gray-300" /></Link>
+                                            <Link to="/cart" className="p-2 relative" onClick={() => setIsOpen(false)}>
+                                                <ShoppingCart size={22} className="text-gray-300" />
+                                                {cartCount > 0 && (
+                                                    <span className="absolute top-1 right-1 bg-tronix-primary text-[10px] w-4 h-4 rounded-full flex items-center justify-center text-white font-bold">
+                                                        {cartCount}
+                                                    </span>
+                                                )}
+                                            </Link>
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="pt-4 space-y-3 border-t border-white/5 mt-2">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex gap-4">
-                                                <button onClick={() => { setIsOpen(false); setIsSearchOpen(true); }}><Search size={20} className="text-gray-300" /></button>
-                                                <Link to="/wishlist"><Heart size={20} className="text-gray-300" /></Link>
-                                                <Link to="/cart"><ShoppingCart size={20} className="text-gray-300" /></Link>
-                                            </div>
+                                    <div className="pt-4 space-y-4 border-t border-white/5 mt-2">
+                                        <div className="flex items-center justify-around bg-white/5 rounded-xl p-3">
+                                            <button onClick={() => { setIsOpen(false); setIsSearchOpen(true); }} className="p-2"><Search size={22} className="text-gray-300" /></button>
+                                            <Link to="/wishlist" className="p-2" onClick={() => setIsOpen(false)}><Heart size={22} className="text-gray-300" /></Link>
+                                            <Link to="/cart" className="p-2 relative" onClick={() => setIsOpen(false)}>
+                                                <ShoppingCart size={22} className="text-gray-300" />
+                                                {cartCount > 0 && (
+                                                    <span className="absolute top-1 right-1 bg-tronix-primary text-[10px] w-4 h-4 rounded-full flex items-center justify-center text-white font-bold">
+                                                        {cartCount}
+                                                    </span>
+                                                )}
+                                            </Link>
                                         </div>
                                         <div className="grid grid-cols-2 gap-3">
                                             <Link
                                                 to="/login"
                                                 onClick={() => setIsOpen(false)}
-                                                className="text-center py-2 rounded-lg bg-white/5 text-white text-sm font-medium"
+                                                className="text-center py-3 rounded-xl bg-white/5 text-white text-sm font-medium border border-white/10"
                                             >
                                                 Login
                                             </Link>
                                             <Link
                                                 to="/signup"
                                                 onClick={() => setIsOpen(false)}
-                                                className="text-center py-2 rounded-lg bg-tronix-primary text-white text-sm font-bold"
+                                                className="text-center py-3 rounded-xl bg-tronix-primary text-white text-sm font-bold shadow-lg shadow-violet-500/20"
                                             >
                                                 Sign Up
                                             </Link>

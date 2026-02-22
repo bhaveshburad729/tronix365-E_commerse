@@ -19,7 +19,7 @@ class ProductDB(Base):
     mrp = Column(Float, nullable=True) # Maximum Retail Price
     sale_price = Column(Float, nullable=True) # Discounted Price
     features = Column(JSON, nullable=True) # Bullet points
-    stock = Column(Integer, default=0) # Real Stock Quantity
+    stock = Column(Integer, default=100) # Real Stock Quantity
 
 class UserDB(Base):
     __tablename__ = "users"

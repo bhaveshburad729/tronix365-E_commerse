@@ -277,7 +277,7 @@ const AdminDashboard = () => {
                 </div>
 
                 {/* Stats Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8 mt-4">
                     {[
                         { title: 'Total Revenue', value: `₹${stats.total_revenue.toLocaleString()}`, icon: DollarSign, color: 'text-emerald-500' },
                         { title: 'Total Orders', value: stats.total_orders, icon: Package, color: 'text-violet-500' },
@@ -302,7 +302,7 @@ const AdminDashboard = () => {
                 {/* Content Area */}
                 <div className="bg-tronix-card border border-white/5 rounded-xl overflow-hidden min-h-[500px] flex flex-col">
                     <div className="border-b border-white/5 p-4 flex items-center justify-between">
-                        <div className="flex gap-4">
+                        <div className="flex gap-2 sm:gap-4 overflow-x-auto pb-2 sm:pb-0 scrollbar-hide">
                             <button
                                 onClick={() => setActiveTab('products')}
                                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'products' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'}`}
@@ -323,14 +323,14 @@ const AdminDashboard = () => {
                             </button>
                         </div>
 
-                        <div className="relative">
+                        <div className="relative mt-4 sm:mt-0 w-full sm:w-auto">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
                             <input
                                 type="text"
-                                placeholder="Search products or orders..."
+                                placeholder="Search..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="bg-black/20 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white focus:outline-none focus:border-tronix-primary w-64 transition-all focus:w-72"
+                                className="bg-black/20 border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-white focus:outline-none focus:border-tronix-primary w-full sm:w-64 transition-all focus:sm:w-72"
                             />
                         </div>
                     </div>
@@ -338,64 +338,69 @@ const AdminDashboard = () => {
                     <div className="p-6 flex-1">
                         {activeTab === 'products' && (
                             <>
-                                <table className="w-full text-left text-sm text-gray-400 mb-4">
-                                    <thead className="bg-white/5 text-white uppercase font-medium">
-                                        <tr>
-                                            <th className="px-6 py-4 rounded-l-lg">Product</th>
-                                            <th className="px-6 py-4">SKV</th>
-                                            <th className="px-6 py-4">Category</th>
-                                            <th className="px-6 py-4">Price</th>
-                                            <th className="px-6 py-4">Stock</th>
-                                            <th className="px-6 py-4 rounded-r-lg">Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-white/5">
-                                        {filteredProducts.map((item) => (
-                                            <tr key={item.id} className="hover:bg-white/5 transition-colors">
-                                                <td className="px-6 py-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center overflow-hidden">
-                                                            <img src={getImageUrl(item.image)} alt="" className="w-full h-full object-cover" />
-                                                        </div>
-                                                        <span className="font-medium text-white">{item.title}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4 text-gray-300 font-mono text-xs">{item.skv || 'N/A'}</td>
-                                                <td className="px-6 py-4">{item.category}</td>
-                                                <td className="px-6 py-4 text-white">₹{item.price}</td>
-                                                <td className="px-6 py-4">{item.stock}</td>
-                                                <td className="px-6 py-4">
-                                                    {item.stock > 0 ? (
-                                                        <span className="bg-emerald-500/10 text-emerald-500 px-3 py-1 rounded-full text-xs font-medium">In Stock</span>
-                                                    ) : (
-                                                        <span className="bg-red-500/10 text-red-400 px-3 py-1 rounded-full text-xs font-medium">Out of Stock</span>
-                                                    )}
-                                                </td>
-                                                <td className="px-6 py-4 flex gap-2">
-                                                    <button
-                                                        onClick={() => handleOpenEditModal(item)}
-                                                        className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-blue-400 transition-colors"
-                                                    >
-                                                        <Edit size={16} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDeleteClick(item)}
-                                                        className="p-2 bg-white/5 hover:bg-red-500/20 rounded-lg text-red-400 transition-colors"
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                        {filteredProducts.length === 0 && (
+                                <div className="overflow-x-auto -mx-6 sm:mx-0">
+                                    <table className="w-full text-left text-sm text-gray-400 mb-4 min-w-[600px]">
+                                        <thead className="bg-white/5 text-white uppercase font-medium">
                                             <tr>
-                                                <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
-                                                    No products found matching "{searchQuery}"
-                                                </td>
+                                                <th className="px-6 py-4 rounded-l-lg">Product</th>
+                                                <th className="px-6 py-4">SKV</th>
+                                                <th className="px-6 py-4">Category</th>
+                                                <th className="px-6 py-4">Price</th>
+                                                <th className="px-6 py-4">Stock</th>
+                                                <th className="px-6 py-4">Status</th>
+                                                <th className="px-6 py-4 rounded-r-lg">Actions</th>
                                             </tr>
-                                        )}
-                                    </tbody>
-                                </table>
+                                        </thead>
+                                        <tbody className="divide-y divide-white/5">
+                                            {filteredProducts.map((item) => (
+                                                <tr key={item.id} className="hover:bg-white/5 transition-colors">
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-10 h-10 bg-white/10 rounded-lg flex items-center justify-center overflow-hidden">
+                                                                <img src={getImageUrl(item.image)} alt="" className="w-full h-full object-cover" />
+                                                            </div>
+                                                            <span className="font-medium text-white line-clamp-1">{item.title}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-gray-300 font-mono text-xs">{item.skv || 'N/A'}</td>
+                                                    <td className="px-6 py-4 truncate max-w-[120px]">{item.category}</td>
+                                                    <td className="px-6 py-4 text-white">₹{item.price}</td>
+                                                    <td className="px-6 py-4">{item.stock}</td>
+                                                    <td className="px-6 py-4">
+                                                        {item.stock > 0 ? (
+                                                            <span className="bg-emerald-500/10 text-emerald-500 px-3 py-1 rounded-full text-xs font-medium">In Stock</span>
+                                                        ) : (
+                                                            <span className="bg-red-500/10 text-red-400 px-3 py-1 rounded-full text-xs font-medium">Out of Stock</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex gap-2">
+                                                            <button
+                                                                onClick={() => handleOpenEditModal(item)}
+                                                                className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-blue-400 transition-colors"
+                                                            >
+                                                                <Edit size={16} />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDeleteClick(item)}
+                                                                className="p-2 bg-white/5 hover:bg-red-500/20 rounded-lg text-red-400 transition-colors"
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                            {filteredProducts.length === 0 && (
+                                                <tr>
+                                                    <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
+                                                        No products found matching "{searchQuery}"
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
                                 {hasMoreProducts && (
                                     <div className="flex justify-center mt-4">
                                         <button onClick={loadMore} disabled={loadingMore} className="text-tronix-primary hover:underline disabled:opacity-50">
@@ -606,7 +611,7 @@ const AdminDashboard = () => {
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, y: 20 }}
                             transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                            className="relative w-full max-w-4xl bg-tronix-card border border-white/10 rounded-2xl shadow-2xl shadow-violet-500/10 flex flex-col max-h-[90vh] overflow-hidden"
+                            className="relative w-full max-w-4xl bg-tronix-card border border-white/10 rounded-2xl shadow-2xl shadow-violet-500/10 flex flex-col max-h-[90vh] overflow-hidden m-4"
                         >
                             {/* Header */}
                             <div className="flex items-center justify-between p-6 border-b border-white/10 bg-white/5">

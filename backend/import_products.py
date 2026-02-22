@@ -20,20 +20,26 @@ def import_products(csv_file_path, reset=False):
             # Check for existing orders
             from models import OrderItemDB, OrderDB, ReviewDB
             order_items_count = db.query(OrderItemDB).count()
-            if order_items_count > 0:
-                print(f"Warning: {order_items_count} order items exist in database.")
-                # Since this script might run in a non-interactive shell,
-                # we'll assume the user wants a full wipe if they used --reset.
-                # In a real CLI we'd ask, but here we prioritize execution.
+            # Wipe reviews too just in case
+            from sqlalchemy import text
+            is_sqlite = db.bind.url.drivername == 'sqlite'
+            
+            if is_sqlite:
                 db.query(OrderItemDB).delete()
                 db.query(OrderDB).delete()
-                print("Wiped orders and order items to maintain integrity.")
+                db.query(ReviewDB).delete()
+                db.query(ProductDB).delete()
+                # Reset SQLite sequence
+                db.execute(text("DELETE FROM sqlite_sequence WHERE name='products'"))
+                db.execute(text("DELETE FROM sqlite_sequence WHERE name='orders'"))
+                db.execute(text("DELETE FROM sqlite_sequence WHERE name='order_items'"))
+                db.execute(text("DELETE FROM sqlite_sequence WHERE name='reviews'"))
+            else:
+                # PostgreSQL Reset
+                db.execute(text("TRUNCATE TABLE order_items, orders, reviews, products RESTART IDENTITY CASCADE"))
             
-            # Wipe reviews too just in case
-            db.query(ReviewDB).delete()
-            db.query(ProductDB).delete()
             db.commit()
-            print("Products and associated data wiped successfully.\n")
+            print("Products and associated data wiped successfully. IDs reset to 1.\n")
 
         # Try common encodings to handle different CSV sources (Excel/Windows)
         encodings = ['utf-8-sig', 'cp1252', 'latin-1']
@@ -153,7 +159,7 @@ def import_products(csv_file_path, reset=False):
                             price=clean_float(row.get('price'), 0.0),
                             mrp=clean_float(row.get('mrp'), None),
                             sale_price=clean_float(row.get('sale_price'), None),
-                            stock=clean_int(row.get('stock'), 0),
+                            stock=clean_int(row.get('stock'), 100),
                             description=row.get('description', ''),
                             image=final_image_path,
                             features=parse_list(row.get('features', '')),

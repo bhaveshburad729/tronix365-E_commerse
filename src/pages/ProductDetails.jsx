@@ -178,19 +178,19 @@ const ProductDetails = () => {
                             {product.stock > 0 ? 'Proceed to Checkout' : 'Out of Stock'}
                         </button>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="flex items-center gap-3 p-4 border border-white/5 rounded-xl bg-white/5">
                                 <Truck className="text-tronix-accent" size={24} />
                                 <div>
                                     <div className="text-white font-medium text-sm">Fast Delivery</div>
-                                    <div className="text-gray-500 text-xs">2-3 business days</div>
+                                    <div className="text-gray-500 text-xs">Same Day Delivery</div>
                                 </div>
                             </div>
                             <div className="flex items-center gap-3 p-4 border border-white/5 rounded-xl bg-white/5">
                                 <ShieldCheck className="text-tronix-accent" size={24} />
                                 <div>
                                     <div className="text-white font-medium text-sm">Warranty</div>
-                                    <div className="text-gray-500 text-xs">1 Year Standard</div>
+                                    <div className="text-gray-500 text-xs">Manufacturer Warranty</div>
                                 </div>
                             </div>
                         </div>
@@ -199,7 +199,7 @@ const ProductDetails = () => {
 
                 {/* Spec Tabs */}
                 <div className="mt-20">
-                    <div className="flex items-center gap-8 border-b border-white/10 mb-8">
+                    <div className="flex items-center gap-8 border-b border-white/10 mb-8 overflow-x-auto scrollbar-hide">
                         <button
                             onClick={() => setActiveTab('specs')}
                             className={`pb-4 text-lg font-medium transition-colors relative ${activeTab === 'specs' ? 'text-tronix-primary' : 'text-gray-400 hover:text-white'}`}
