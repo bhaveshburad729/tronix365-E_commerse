@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Package, User, LogOut, ChevronRight, Clock, CheckCircle, XCircle, Mail, ShieldCheck, Calendar, Eye, EyeOff, Upload, Camera } from 'lucide-react';
 import toast from 'react-hot-toast';
 import client from '../api/client';
@@ -164,7 +164,7 @@ const UserDashboard = () => {
                         <div className="bg-tronix-card border border-white/10 rounded-xl p-6 text-center">
                             <div className="w-20 h-20 rounded-full mx-auto mb-4 relative overflow-hidden bg-tronix-primary/20 border-2 border-tronix-primary/30 flex items-center justify-center">
                                 {user?.profile_picture ? (
-                                    <img src={user.profile_picture} alt={user?.full_name} className="w-full h-full object-cover" />
+                                    <img src={getImageUrl(user.profile_picture)} alt={user?.full_name} className="w-full h-full object-cover" />
                                 ) : (
                                     <span className="text-2xl font-bold text-tronix-primary">
                                         {user?.full_name?.charAt(0).toUpperCase()}
@@ -352,7 +352,7 @@ const UserDashboard = () => {
                                                 <div className="flex items-center gap-6">
                                                     <div className="w-24 h-24 rounded-full overflow-hidden bg-black/40 border border-white/20 flex-shrink-0 flex items-center justify-center">
                                                         {editForm.profile_picture ? (
-                                                            <img src={editForm.profile_picture} alt="Preview" className="w-full h-full object-cover" />
+                                                            <img src={getImageUrl(editForm.profile_picture)} alt="Preview" className="w-full h-full object-cover" />
                                                         ) : (
                                                             <User size={32} className="text-gray-500" />
                                                         )}

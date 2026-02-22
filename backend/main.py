@@ -648,9 +648,10 @@ async def upload_image(file: UploadFile = File(...)):
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
             
-        # Return full URL
-        backend_url = os.getenv("BACKEND_URL", "http://localhost:8000")
-        return {"url": f"{backend_url}/uploads/{unique_filename}"}
+        # Return a relative URL instead of absolute 
+        # so it automatically adapts to whatever environment (Render/Local)
+        # the frontend uses to display it.
+        return {"url": f"/uploads/{unique_filename}"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

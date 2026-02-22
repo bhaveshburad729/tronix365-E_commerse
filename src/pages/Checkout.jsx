@@ -254,7 +254,7 @@ const Checkout = () => {
                                 {selectedItems.map((item) => (
                                     <div key={item.id} className="flex gap-3 items-start">
                                         <div className="w-12 h-12 bg-white/5 rounded-md flex-shrink-0 flex items-center justify-center p-1">
-                                            <img src={item.image} className="max-w-full max-h-full object-contain" />
+                                            <img src={getImageUrl(item.image)} className="max-w-full max-h-full object-contain" />
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm text-gray-300 truncate">{item.title}</p>

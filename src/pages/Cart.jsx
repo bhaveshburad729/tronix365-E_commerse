@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { Trash2, Plus, Minus, ArrowRight, ShoppingBag } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { getImageUrl } from '../utils/imageUtils';
 
 const Cart = () => {
     const {
@@ -66,7 +67,7 @@ const Cart = () => {
                                 />
 
                                 <div className="w-20 h-20 bg-white/5 rounded-lg flex items-center justify-center p-2 shrink-0">
-                                    <img src={item.image} alt={item.title} className={`max-w-full max-h-full object-contain ${item.selected === false ? 'opacity-50 grayscale' : ''}`} />
+                                    <img src={getImageUrl(item.image)} alt={item.title} className={`max-w-full max-h-full object-contain ${item.selected === false ? 'opacity-50 grayscale' : ''}`} />
                                 </div>
 
                                 <div className="flex-1 min-w-0">
@@ -140,8 +141,8 @@ const Cart = () => {
                                 onClick={handleCheckout}
                                 disabled={selectedCount === 0}
                                 className={`w-full font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg ${selectedCount === 0
-                                        ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                                        : 'bg-tronix-primary text-white hover:bg-violet-600 shadow-violet-500/20 group'
+                                    ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                                    : 'bg-tronix-primary text-white hover:bg-violet-600 shadow-violet-500/20 group'
                                     }`}
                             >
                                 Proceed to Checkout

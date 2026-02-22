@@ -4,6 +4,7 @@ import { ShoppingCart, Eye, Heart } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useWishlist } from '../../context/WishlistContext';
+import { getImageUrl } from '../../utils/imageUtils';
 
 const ProductCard = ({ product }) => {
     const { toggleWishlist, isInWishlist } = useWishlist();
@@ -19,7 +20,7 @@ const ProductCard = ({ product }) => {
             {/* Image Container */}
             <div className="relative h-48 overflow-hidden bg-white/5 p-4 flex items-center justify-center">
                 <img
-                    src={product.image}
+                    src={getImageUrl(product.image)}
                     alt={product.title}
                     className="h-full object-contain group-hover:scale-110 transition-transform duration-500"
                 />

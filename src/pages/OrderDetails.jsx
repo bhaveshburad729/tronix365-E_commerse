@@ -177,7 +177,7 @@ const OrderDetails = () => {
                                         onClick={() => navigate(`/product/${item.product_id}`)}
                                     >
                                         {item.product ? (
-                                            <img src={item.product.image} className="max-w-full max-h-full object-contain" alt={item.product.title} />
+                                            <img src={getImageUrl(item.product.image)} className="max-w-full max-h-full object-contain" alt={item.product.title} />
                                         ) : (
                                             <Package size={32} className="text-gray-600" />
                                         )}

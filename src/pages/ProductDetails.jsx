@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import { products as mockProducts } from '../data/mockData';
 import ReviewSection from '../components/product/ReviewSection';
 import client from '../api/client';
+import { getImageUrl } from '../utils/imageUtils';
 
 const ProductDetails = () => {
     const { id } = useParams();
@@ -74,7 +75,7 @@ const ProductDetails = () => {
                         className="bg-tronix-card/50 border border-white/5 rounded-2xl p-8 flex items-center justify-center h-[500px]"
                     >
                         <img
-                            src={product.image}
+                            src={getImageUrl(product.image)}
                             alt={product.title}
                             className="max-h-full max-w-full object-contain drop-shadow-2xl"
                         />

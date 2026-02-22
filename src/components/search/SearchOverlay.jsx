@@ -107,7 +107,7 @@ const SearchOverlay = ({ isOpen, onClose }) => {
                                             onClick={onClose}
                                             className="flex items-center gap-4 bg-tronix-card/50 hover:bg-tronix-card border border-white/5 hover:border-tronix-primary/30 p-4 rounded-xl transition-all group"
                                         >
-                                            <img src={product.image} alt={product.title} className="w-16 h-16 object-contain bg-white/5 p-2 rounded-lg" />
+                                            <img src={getImageUrl(product.image)} alt={product.title} className="w-16 h-16 object-contain bg-white/5 p-2 rounded-lg" />
                                             <div className="flex-1">
                                                 <h4 className="text-white font-medium group-hover:text-tronix-primary transition-colors">{product.title}</h4>
                                                 <p className="text-sm text-gray-400">{product.category}</p>

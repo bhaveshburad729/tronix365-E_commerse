@@ -40,7 +40,7 @@ const Wishlist = () => {
                                 <Link to={`/product/${product.id}`} className="block">
                                     <div className="relative h-48 p-4 bg-white/5 group-hover:bg-white/10 transition-colors flex items-center justify-center">
                                         <img
-                                            src={product.image}
+                                            src={getImageUrl(product.image)}
                                             alt={product.title}
                                             className="h-full object-contain drop-shadow-lg group-hover:scale-110 transition-transform duration-300"
                                         />
