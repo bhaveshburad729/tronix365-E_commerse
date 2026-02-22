@@ -24,7 +24,10 @@ const Login = () => {
             formData.append('username', email); // OAuth2 expects 'username'
             formData.append('password', password);
 
-            const response = await client.post('/login', formData, {
+            // Determine endpoint based on toggle
+            const endpoint = isAdmin ? '/admin/login' : '/login';
+
+            const response = await client.post(endpoint, formData, {
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
