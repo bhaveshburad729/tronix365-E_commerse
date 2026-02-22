@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Package, User, LogOut, ChevronRight, Clock, CheckCircle, XCircle, Mail, ShieldCheck, Calendar, Eye, EyeOff, Upload, Camera } from 'lucide-react';
 import toast from 'react-hot-toast';
 import client from '../api/client';
+import { getImageUrl } from '../utils/imageUtils';
 
 const UserDashboard = () => {
     const navigate = useNavigate();

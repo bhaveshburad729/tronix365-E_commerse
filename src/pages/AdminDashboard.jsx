@@ -4,6 +4,7 @@ import { Package, Users, DollarSign, TrendingUp, Plus, Image as ImageIcon, Searc
 import { products as mockProducts } from '../data/mockData';
 import { motion, AnimatePresence } from 'framer-motion';
 import client from '../api/client';
+import { getImageUrl } from '../utils/imageUtils';
 
 const AdminDashboard = () => {
     const [activeTab, setActiveTab] = useState('products');

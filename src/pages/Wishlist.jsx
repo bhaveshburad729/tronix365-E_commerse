@@ -4,6 +4,7 @@ import { Heart, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useWishlist } from '../context/WishlistContext';
 import { useCart } from '../context/CartContext';
+import { getImageUrl } from '../utils/imageUtils';
 
 const Wishlist = () => {
     const { wishlistItems, removeFromWishlist } = useWishlist();

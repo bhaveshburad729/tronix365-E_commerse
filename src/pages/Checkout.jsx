@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { MapPin, CreditCard, ShieldCheck, Truck, ChevronRight } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import client from '../api/client';
+import { getImageUrl } from '../utils/imageUtils';
 
 const Checkout = () => {
     const { selectedItems, cartTotal } = useCart();

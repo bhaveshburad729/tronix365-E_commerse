@@ -4,6 +4,7 @@ import { Search, X, ArrowRight } from 'lucide-react';
 import { products as mockProducts } from '../../data/mockData';
 import { Link } from 'react-router-dom';
 import client from '../../api/client';
+import { getImageUrl } from '../../utils/imageUtils';
 
 const SearchOverlay = ({ isOpen, onClose }) => {
     const [query, setQuery] = useState('');

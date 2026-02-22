@@ -1,7 +1,9 @@
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Package, ChevronLeft, CheckCircle, Clock, XCircle, FileText, Truck, CreditCard, User, Check, Calendar } from 'lucide-react';
 import toast from 'react-hot-toast';
 import client from '../api/client';
+import { getImageUrl } from '../utils/imageUtils';
 
 const OrderDetails = () => {
     const { id } = useParams();
