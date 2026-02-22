@@ -139,8 +139,15 @@ def import_products(csv_file_path, reset=False):
                         # Resilient Numeric Parsing
                         if row.get('price'): existing_product.price = clean_float(row['price'], existing_product.price)
                         if row.get('mrp'): existing_product.mrp = clean_float(row['mrp'], existing_product.mrp)
-                        if row.get('sale_price'): existing_product.sale_price = clean_float(row['sale_price'], existing_product.sale_price)
-                        if row.get('stock'): existing_product.stock = clean_int(row['stock'], existing_product.stock)
+                        if row.get('sale_price'): 
+                            existing_product.sale_price = clean_float(row['sale_price'], existing_product.sale_price)
+
+                        # Default Sale Price to 200 if it's missing/0 OR if main Price is missing/0
+                        if (not existing_product.sale_price or existing_product.sale_price == 0 or 
+                            not existing_product.price or existing_product.price == 0):
+                            existing_product.sale_price = 200.0
+                        # Force Stock to 100 regardless of CSV
+                        existing_product.stock = 100
                         
                         # Complex fields
                         features_raw = row.get('features')
@@ -158,13 +165,17 @@ def import_products(csv_file_path, reset=False):
                             category=row.get('category', 'Uncategorized'),
                             price=clean_float(row.get('price'), 0.0),
                             mrp=clean_float(row.get('mrp'), None),
-                            sale_price=clean_float(row.get('sale_price'), None),
-                            stock=clean_int(row.get('stock'), 100),
+                            sale_price=clean_float(row.get('sale_price'), 0.0), # Temporary parse
+                            stock=100,
                             description=row.get('description', ''),
                             image=final_image_path,
                             features=parse_list(row.get('features', '')),
                             specs=parse_dict(row.get('specs', ''))
                         )
+                        # Post-init fallback check
+                        if not new_product.sale_price or new_product.sale_price == 0 or not new_product.price or new_product.price == 0:
+                            new_product.sale_price = 200.0
+                            
                         db.add(new_product)
                         db.commit()
                         count += 1
