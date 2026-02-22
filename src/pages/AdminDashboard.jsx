@@ -362,7 +362,7 @@ const AdminDashboard = () => {
                                                 </td>
                                                 <td className="px-6 py-4 text-gray-300 font-mono text-xs">{item.skv || 'N/A'}</td>
                                                 <td className="px-6 py-4">{item.category}</td>
-                                                <td className="px-6 py-4 text-white">₹{item.sale_price || item.price}</td>
+                                                <td className="px-6 py-4 text-white">₹{item.price}</td>
                                                 <td className="px-6 py-4">{item.stock}</td>
                                                 <td className="px-6 py-4">
                                                     {item.stock > 0 ? (
@@ -740,7 +740,7 @@ const AdminDashboard = () => {
                                             </h3>
 
                                             <div className="grid grid-cols-2 gap-4">
-                                                <div>
+                                                <div className="hidden">
                                                     <label className="block text-sm font-medium text-gray-300 mb-1.5 pl-1">MRP (₹)</label>
                                                     <div className="relative">
                                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">
@@ -755,8 +755,8 @@ const AdminDashboard = () => {
                                                         />
                                                     </div>
                                                 </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-300 mb-1.5 pl-1">Sale Price (₹)</label>
+                                                <div className="col-span-2">
+                                                    <label className="block text-sm font-medium text-gray-300 mb-1.5 pl-1">Selling Price (₹)</label>
                                                     <div className="relative">
                                                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-emerald-500">
                                                             ₹

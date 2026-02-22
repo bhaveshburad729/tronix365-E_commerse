@@ -69,10 +69,7 @@ const ProductCard = ({ product }) => {
                 </Link>
                 <div className="mt-auto flex items-center justify-between">
                     <div className="flex flex-col">
-                        <span className="text-xl font-bold text-white">₹{product.sale_price || product.price}</span>
-                        {product.sale_price && product.price && product.sale_price !== product.price && (
-                            <span className="text-xs text-gray-400 line-through">₹{product.price}</span>
-                        )}
+                        <span className="text-xl font-bold text-white">₹{product.price}</span>
                     </div>
                     <button
                         onClick={(e) => {

@@ -115,24 +115,9 @@ const ProductDetails = () => {
                         </div>
 
                         <div className="flex items-end gap-3 mb-8">
-                            {product.mrp && (
-                                <div className="flex flex-col">
-                                    <span className="text-gray-500 text-sm">MRP</span>
-                                    <span className="text-gray-500 line-through decoration-gray-500/50 blur-[1px]">₹{product.mrp}</span>
-                                </div>
-                            )}
-                            {product.price && product.sale_price && product.price !== product.sale_price && (
-                                <div className="flex flex-col">
-                                    <span className="text-gray-400 text-sm">Price</span>
-                                    <span className="text-gray-400 line-through">₹{product.price}</span>
-                                </div>
-                            )}
                             <div className="flex flex-col">
-                                <span className="text-tronix-primary text-sm font-bold">
-                                    {product.mrp && product.sale_price ? `${Math.round(((product.mrp - product.sale_price) / product.mrp) * 100)}% DETOM!` : 'Sale Price'}
-                                </span>
                                 <span className="text-4xl font-bold text-white">
-                                    ₹{product.sale_price || product.price}
+                                    ₹{product.price}
                                 </span>
                             </div>
                         </div>
