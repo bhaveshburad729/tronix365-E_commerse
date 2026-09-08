@@ -105,6 +105,16 @@ const ProductDetails = () => {
         } catch (e) {}
     }, [product]);
 
+    // Automatically normalize URL to canonical slug if accessed via ID or mismatch
+    useEffect(() => {
+        if (product && product.title) {
+            const canonicalSlug = slugify(product.title);
+            if (slug !== canonicalSlug) {
+                navigate(`/product/${canonicalSlug}`, { replace: true });
+            }
+        }
+    }, [product, slug, navigate]);
+
     if (loading) {
         return <ProductDetailSkeleton />;
     }
@@ -146,16 +156,6 @@ const ProductDetails = () => {
         return !img || img.includes('placehold.co') || img.includes('No+Image') || img.includes('No Image');
     };
     const realProductImage = isPlaceholderImage(product.image) ? null : getImageUrl(product.image);
-
-    // Automatically normalize URL to canonical slug if accessed via ID or mismatch
-    useEffect(() => {
-        if (product && product.title) {
-            const canonicalSlug = slugify(product.title);
-            if (slug !== canonicalSlug) {
-                navigate(`/product/${canonicalSlug}`, { replace: true });
-            }
-        }
-    }, [product, slug, navigate]);
 
     const canonicalProductSlug = product?.title ? slugify(product.title) : slug;
     const canonicalProductUrl = `https://www.tronix365.in/e-commerse/product/${canonicalProductSlug}`;
