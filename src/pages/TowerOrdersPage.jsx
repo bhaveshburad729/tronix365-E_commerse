@@ -122,6 +122,7 @@ const TowerOrdersPage = () => {
             <SEO
                 title="Tower Order & On-Demand Sourcing | Tronix365"
                 description="Place Tower Orders for high-volume, custom, or made-to-order industrial electronics. Directly connected with manufacturing plants."
+                url="https://www.tronix365.in/e-commerse/tower-orders"
             />
 
             <div className="max-w-7xl mx-auto space-y-12 sm:space-y-16">

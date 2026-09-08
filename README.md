@@ -474,6 +474,26 @@ _(Warning: Running seed.py drops existing tables and resets the local database).
 
 ---
 
+## 🌐 Search Engine Optimization (SEO) & Google Search Console Architecture
+
+Tronix365 features a dual-layer SEO architecture engineered specifically for single-page application (SPA) indexing across search engines like Google:
+
+### 1. Server-Side Crawler Interception (`public/index.php` & Apache `.htaccess`)
+* **Strict HTTPS & www Normalization**: Enforces 301 Permanent Redirects for all traffic from HTTP or non-www to `https://www.tronix365.in/e-commerse/`.
+* **301 Canonical Slug Redirects**: Automatically intercepts numeric product ID requests (`/product/123`) or unnormalized slugs and permanently redirects (HTTP 301) to the canonical slug (`/product/canonical-slug`), eliminating GSC duplicate canonical warnings.
+* **True HTTP 404 Status Enforcement**: If a non-existent product or invalid URL is accessed, `index.php` issues a genuine `404 Not Found` header with `noindex, follow` robots meta tag, preventing "Soft 404" errors in Search Console.
+* **Dynamic Dynamic Category & Product Schema**: Injects Product, BreadcrumbList, and FAQPage JSON-LD schemas directly into the initial HTML response before rendering.
+
+### 2. Client-Side Parity (`SEO.jsx` & React Router)
+* **Auto-Canonical Resolution**: `<SEO />` automatically derives and normalizes canonical URLs based on the active route, preventing subpages (`/about`, `/contact`, `/categories`, etc.) from defaulting to the homepage.
+* **Shop vs Category Differentiation**: Distinguishes `/shop` (`.../shop`) from category listings (`.../category/:category`), preventing conflicting canonical definitions.
+
+### 3. Automated Sitemap Engine (`scripts/generate-sitemap.cjs`)
+* Automatically runs during `npm run build` to query the live API (or fallback `products_metadata.json`) and writes an up-to-date, valid XML sitemap directly to `public/sitemap.xml` and `dist/sitemap.xml`.
+* Synchronized homepage trailing slash (`https://www.tronix365.in/e-commerse/`) ensures 100% parity with server-side canonical declarations.
+
+---
+
 ## 🔮 Future Scope
 
 - **Live Payments**: Integrate production payment APIs (Razorpay / Stripe).

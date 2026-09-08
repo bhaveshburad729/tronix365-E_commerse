@@ -39,8 +39,16 @@ const fallbackCategories = [
   'motors',
   'battery',
   'displays',
-  'robotics-kits',
-  'iot-devices'
+  'relays',
+  'led',
+  'wheels',
+  'socket',
+  'connector',
+  'keypad',
+  'switches',
+  'cables',
+  'miscellaneous',
+  'other'
 ];
 
 async function generate() {
@@ -149,8 +157,10 @@ async function generate() {
       changefreq = 'weekly';
     }
 
+    const loc = route === '' ? `${BASE_URL}/` : `${BASE_URL}${route}`;
+
     return `  <url>
-    <loc>${BASE_URL}${route}</loc>
+    <loc>${loc}</loc>
     <changefreq>${changefreq}</changefreq>
     <priority>${priority}</priority>
   </url>`;

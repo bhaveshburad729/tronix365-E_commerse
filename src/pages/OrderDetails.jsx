@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import client from '../api/client';
 import { getImageUrl } from '../utils/imageUtils';
 import TaxInvoiceModal from '../components/invoice/TaxInvoiceModal';
+import { slugify } from '../utils/slugify';
 
 const OrderDetails = () => {
     const { id } = useParams();
@@ -274,7 +275,7 @@ const OrderDetails = () => {
                                     {/* Product Image */}
                                     <div
                                         className="w-24 h-24 bg-black/40 rounded-xl border border-white/10 p-2 flex-shrink-0 flex items-center justify-center cursor-pointer hover:border-tronix-primary transition-colors"
-                                        onClick={() => navigate(`/product/${item.product_id}`)}
+                                        onClick={() => navigate(item.product?.title ? `/product/${slugify(item.product.title)}` : `/product/${item.product_id}`)}
                                     >
                                         {item.product ? (
                                             <img src={getImageUrl(item.product.image)} className="max-w-full max-h-full object-contain" alt={item.product.title} />
@@ -287,7 +288,7 @@ const OrderDetails = () => {
                                     <div className="flex-1 space-y-1">
                                         <h4
                                             className="text-lg font-bold text-blue-400 hover:text-blue-300 cursor-pointer line-clamp-2"
-                                            onClick={() => navigate(`/product/${item.product_id}`)}
+                                            onClick={() => navigate(item.product?.title ? `/product/${slugify(item.product.title)}` : `/product/${item.product_id}`)}
                                         >
                                             {item.product ? item.product.title : `Product ID: ${item.product_id}`}
                                             {item.bundle_id && (
@@ -306,7 +307,7 @@ const OrderDetails = () => {
                                     <div className="sm:text-right space-y-2 flex-shrink-0">
                                         <p className="text-sm text-gray-400">Qty: <span className="text-white font-medium">{item.quantity}</span></p>
                                         <button
-                                            onClick={() => navigate(`/product/${item.product_id}`)}
+                                            onClick={() => navigate(item.product?.title ? `/product/${slugify(item.product.title)}` : `/product/${item.product_id}`)}
                                             className="w-full sm:w-auto mt-2 bg-tronix-primary text-white hover:bg-violet-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-1.5"
                                         >
                                             Buy it again

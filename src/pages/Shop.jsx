@@ -65,6 +65,48 @@ const categorySeoData = {
             { q: "How do I interface an OLED display with Arduino?", a: "Most OLED modules use the I2C interface (SDA/SCL pins) and can be programmed using libraries like Adafruit SSD1306 in the Arduino IDE." }
         ]
     },
+    'relays': {
+        title: 'Relay Modules & Switch Controllers | Tronix365',
+        description: 'Buy 1-channel, 2-channel, 4-channel, and 8-channel relay modules for Arduino, ESP32, and home automation IoT projects with fast shipping in India.',
+        faqs: [
+            { q: "What is a relay module used for?", a: "Relay modules allow low-voltage microcontrollers like Arduino to safely switch high-voltage AC/DC appliances on and off." }
+        ]
+    },
+    'led': {
+        title: 'LEDs, Displays & Optoelectronics | Tronix365',
+        description: 'Shop RGB LEDs, LED matrices, indicator LEDs, and display drivers for electronic prototyping and hardware design at Tronix365.',
+        faqs: []
+    },
+    'wheels': {
+        title: 'Robotics Wheels, Chassis & Accessories | Tronix365',
+        description: 'High traction robot wheels, omni-wheels, motor couplings, and robot chassis components for RC cars and robotics competitions.',
+        faqs: []
+    },
+    'socket': {
+        title: 'IC Sockets, Headers & Breadboard Connectors | Tronix365',
+        description: 'DIP IC sockets, female headers, male pin headers, and prototyping socket hardware for custom PCB assembly.',
+        faqs: []
+    },
+    'connector': {
+        title: 'Electronic Connectors, JST & Terminal Blocks | Tronix365',
+        description: 'Shop JST connectors, screw terminal blocks, DC power jacks, and wire connectors for secure electronic connections.',
+        faqs: []
+    },
+    'keypad': {
+        title: 'Membrane Keypads & Matrix Switch Modules | Tronix365',
+        description: '4x4 matrix keypads, 3x4 membrane switches, and tactile push button modules for microcontroller user input.',
+        faqs: []
+    },
+    'switches': {
+        title: 'Tactile Switches, Toggle Switches & Push Buttons | Tronix365',
+        description: 'Micro switches, tactile push buttons, slide switches, and rocker power switches for electronic circuit designs.',
+        faqs: []
+    },
+    'cables': {
+        title: 'Jumper Wires, Ribbon Cables & USB Cables | Tronix365',
+        description: 'Male-to-male, male-to-female, female-to-female jumper wires, breadboard cables, and programming cables.',
+        faqs: []
+    },
     'miscellaneous': {
         title: 'Miscellaneous Electronic Components & Accessories',
         description: "Browse our curated miscellaneous range of electronic components, accessories, and add-ons that don't fit a single category — perfect for makers and tinkerers.",
@@ -229,8 +271,19 @@ const Shop = () => {
         fetchProducts(nextPage, false);
     };
 
-    const categoryKey = category ? category.toLowerCase() : 'all';
-    const activeSeo = categorySeoData[categoryKey] || categorySeoData['all'];
+    const categoryKey = category ? category.toLowerCase() : null;
+    const activeSeo = (categoryKey && categorySeoData[categoryKey]) 
+        ? categorySeoData[categoryKey] 
+        : (categoryKey 
+            ? {
+                title: `${category.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} - Components & Modules | Tronix365`,
+                description: `Shop genuine ${category.replace(/-/g, ' ')} components, sensors, and electronic development modules at Tronix365 with fast shipping in India.`
+            }
+            : categorySeoData['all']);
+
+    const shopCanonicalUrl = categoryKey 
+        ? `https://www.tronix365.in/e-commerse/category/${categoryKey}` 
+        : 'https://www.tronix365.in/e-commerse/shop';
 
     return (
         <div className="min-h-screen pt-20 sm:pt-24 pb-12 px-3 sm:px-6 lg:px-8 relative overflow-hidden bg-[#070919]">
@@ -247,7 +300,7 @@ const Shop = () => {
             <SEO
                 title={activeSeo.title}
                 description={activeSeo.description}
-                url={`https://www.tronix365.in/e-commerse/category/${categoryKey}`}
+                url={shopCanonicalUrl}
             />
             {activeSeo.faqs && activeSeo.faqs.length > 0 && (
                 <script type="application/ld+json">

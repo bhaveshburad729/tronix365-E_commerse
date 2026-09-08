@@ -20,6 +20,7 @@ import ShareModal from '../components/common/ShareModal';
 import VariantSelector from '../components/product/VariantSelector';
 import TowerOrderModal from '../components/towerOrder/TowerOrderModal';
 import ProductDetailSkeleton from '../components/product/ProductDetailSkeleton';
+import { slugify } from '../utils/slugify';
 
 const ProductDetails = () => {
     const { slug } = useParams();
@@ -146,13 +147,26 @@ const ProductDetails = () => {
     };
     const realProductImage = isPlaceholderImage(product.image) ? null : getImageUrl(product.image);
 
+    // Automatically normalize URL to canonical slug if accessed via ID or mismatch
+    useEffect(() => {
+        if (product && product.title) {
+            const canonicalSlug = slugify(product.title);
+            if (slug !== canonicalSlug) {
+                navigate(`/product/${canonicalSlug}`, { replace: true });
+            }
+        }
+    }, [product, slug, navigate]);
+
+    const canonicalProductSlug = product?.title ? slugify(product.title) : slug;
+    const canonicalProductUrl = `https://www.tronix365.in/e-commerse/product/${canonicalProductSlug}`;
+
     return (
         <div className="min-h-screen pt-20 sm:pt-24 pb-28 lg:pb-12 px-3 sm:px-6 lg:px-8">
             <SEO
                 title={`${product.title} | Buy Online`}
                 description={product.description}
                 image={realProductImage}
-                url={`https://www.tronix365.in/e-commerse/product/${slug}`}
+                url={canonicalProductUrl}
                 type="product"
             />
             <ProductSchema
@@ -163,7 +177,7 @@ const ProductDetails = () => {
                 sku={product.skv}
                 category={product.category}
                 inStock={product.stock > 0}
-                url={`https://www.tronix365.in/e-commerse/product/${slug}`}
+                url={canonicalProductUrl}
                 ratingValue={reviewStats.average}
                 reviewCount={reviewStats.count}
                 productId={product.id}

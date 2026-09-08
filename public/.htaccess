@@ -2,9 +2,24 @@
   RewriteEngine On
   RewriteBase /e-commerse/
 
-  # Route sitemap.xml to index.php for dynamic database-driven product mapping
+  # 1. Enforce HTTPS & www.tronix365.in
+  RewriteCond %{HTTPS} off [OR]
+  RewriteCond %{HTTP_HOST} !^www\. [NC]
+  RewriteCond %{HTTP_HOST} ^(?:www\.)?tronix365\.in$ [NC]
+  RewriteRule ^(.*)$ https://www.tronix365.in/e-commerse/$1 [R=301,L]
+
+  # 2. Redirect legacy /products routes to /product or /shop
+  RewriteRule ^products/?$ /e-commerse/shop [R=301,L]
+  RewriteRule ^products/(.+)$ /e-commerse/product/$1 [R=301,L]
+
+  # 3. Strip trailing slash on sub-routes (e.g. /product/xyz/ -> /product/xyz)
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule ^(.+)/$ /e-commerse/$1 [R=301,L]
+
+  # 4. Route sitemap.xml to index.php for dynamic database-driven product mapping
   RewriteRule ^sitemap\.xml$ index.php [L]
 
+  # 5. SPA routing to index.php
   RewriteRule ^index\.php$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d

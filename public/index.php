@@ -146,26 +146,37 @@ if ($path === 'sitemap.xml') {
         }
     }
     
-    $staticRoutes = ['', '/shop', '/categories', '/about', '/contact', '/terms', '/privacy', '/return-refund'];
+    $staticRoutes = ['', '/shop', '/categories', '/blogs', '/tower-orders', '/about', '/contact', '/terms', '/privacy', '/return-refund'];
     $categoryRoutes = [
         '/category/development-boards',
         '/category/sensors',
         '/category/modules',
         '/category/motors',
         '/category/battery',
-        '/category/displays'
+        '/category/displays',
+        '/category/relays',
+        '/category/led',
+        '/category/wheels',
+        '/category/socket',
+        '/category/connector',
+        '/category/keypad',
+        '/category/switches',
+        '/category/cables',
+        '/category/miscellaneous',
+        '/category/other'
     ];
     
     $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
     $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
     
     foreach ($staticRoutes as $r) {
-        $priority = ($r === '') ? '1.0' : (($r === '/shop' || $r === '/categories') ? '0.8' : '0.5');
-        $xml .= "  <url>\n    <loc>$baseUrl$r</loc>\n    <changefreq>daily</changefreq>\n    <priority>$priority</priority>\n  </url>\n";
+        $priority = ($r === '') ? '1.0' : (($r === '/shop' || $r === '/categories' || $r === '/blogs') ? '0.8' : '0.5');
+        $loc = ($r === '') ? "$baseUrl/" : "$baseUrl$r";
+        $xml .= "  <url>\n    <loc>$loc</loc>\n    <changefreq>daily</changefreq>\n    <priority>$priority</priority>\n  </url>\n";
     }
     
     foreach ($categoryRoutes as $r) {
-        $xml .= "  <url>\n    <loc>$baseUrl$r</loc>\n    <changefreq>daily</changefreq>\n    <priority>0.7</priority>\n  </url>\n";
+        $xml .= "  <url>\n    <loc>$baseUrl$r</loc>\n    <changefreq>weekly</changefreq>\n    <priority>0.7</priority>\n  </url>\n";
     }
     
     if (is_array($products)) {
@@ -224,7 +235,19 @@ function phpGenerateDescription($title, $category) {
     return $desc;
 }
 
-// 2. Route Matching
+// 2. Legacy Route Redirects
+if ($path === 'products') {
+    header("HTTP/1.1 301 Moved Permanently");
+    header("Location: $baseUrl/shop");
+    exit;
+}
+if (preg_match('/^products\/(.+)$/', $path, $legacyMatch)) {
+    header("HTTP/1.1 301 Moved Permanently");
+    header("Location: $baseUrl/product/" . $legacyMatch[1]);
+    exit;
+}
+
+// 3. Route Matching
 if (preg_match('/^product\/([a-zA-Z0-9_-]+)$/', $path, $matches)) {
     // Product Page
     $slugOrId = $matches[1];
@@ -292,6 +315,14 @@ if (preg_match('/^product\/([a-zA-Z0-9_-]+)$/', $path, $matches)) {
     }
     
     if ($product) {
+        $canonicalSlug = phpNormalize($product['title']);
+        // If accessed via numeric ID or unnormalized slug, 301 redirect to canonical slug
+        if ($isId || $slugOrId !== $canonicalSlug) {
+            header("HTTP/1.1 301 Moved Permanently");
+            header("Location: $baseUrl/product/$canonicalSlug");
+            exit;
+        }
+        $url = "$baseUrl/product/$canonicalSlug";
         $pName = escapeMeta($product['title']);
         // Format title intelligently with Buy Online
         $title = "$pName | Buy Online | Tronix365";
@@ -474,10 +505,17 @@ if (preg_match('/^product\/([a-zA-Z0-9_-]+)$/', $path, $matches)) {
         
         $extraHead .= "\n<script type=\"application/ld+json\">" . json_encode($productSchema) . "</script>";
         $extraHead .= "\n<script type=\"application/ld+json\">" . json_encode($breadcrumbSchema) . "</script>";
+    } else {
+        // Product Not Found -> True HTTP 404 status (prevents Soft 404 in Search Console)
+        http_response_code(404);
+        $title = "Product Not Found | Tronix365";
+        $description = "The requested electronic component could not be found or has been discontinued at Tronix365.";
+        $extraHead .= "\n<meta name=\"robots\" content=\"noindex, follow\" />";
     }
 } else if (preg_match('/^category\/([a-zA-Z0-9_-]+)$/', $path, $matches)) {
     // Category Page
     $catSlug = strtolower($matches[1]);
+    $url = "$baseUrl/category/$catSlug";
     $categorySeo = [
         'sensors' => [
             'title' => 'Electronic Sensors - Ultrasonic, Temperature, IR Sensors',
@@ -511,7 +549,9 @@ if (preg_match('/^product\/([a-zA-Z0-9_-]+)$/', $path, $matches)) {
         'battery' => [
             'title' => 'Li-Po & Lithium-Ion Rechargeable Batteries',
             'desc' => 'High capacity, safe lithium polymer (Li-Po) and lithium-ion batteries. Lightweight power solutions for drones, RC planes, and portable devices.',
-            'faqs' => []
+            'faqs' => [
+                ['q' => 'How do I safely charge Li-Po batteries?', 'a' => 'Always use a dedicated Li-Po balance charger and never leave batteries charging unattended.']
+            ]
         ],
         'displays' => [
             'title' => 'IoT Display Modules - OLED, LCD, I2C Displays',
@@ -519,6 +559,58 @@ if (preg_match('/^product\/([a-zA-Z0-9_-]+)$/', $path, $matches)) {
             'faqs' => [
                 ['q' => 'How do I interface an OLED display with Arduino?', 'a' => 'Most OLED modules use the I2C interface (SDA/SCL pins) and can be programmed using libraries like Adafruit SSD1306 in the Arduino IDE.']
             ]
+        ],
+        'relays' => [
+            'title' => 'Relay Modules & Switch Controllers',
+            'desc' => 'Buy 1-channel, 2-channel, 4-channel, and 8-channel relay modules for Arduino, ESP32, and home automation IoT projects with fast shipping in India.',
+            'faqs' => [
+                ['q' => 'What is a relay module used for?', 'a' => 'Relay modules allow low-voltage microcontrollers like Arduino to safely switch high-voltage AC/DC appliances on and off.']
+            ]
+        ],
+        'led' => [
+            'title' => 'LEDs, Displays & Optoelectronics',
+            'desc' => 'Shop RGB LEDs, LED matrices, indicator LEDs, and display drivers for electronic prototyping and hardware design at Tronix365.',
+            'faqs' => []
+        ],
+        'wheels' => [
+            'title' => 'Robotics Wheels, Chassis & Accessories',
+            'desc' => 'High traction robot wheels, omni-wheels, motor couplings, and robot chassis components for RC cars and robotics competitions.',
+            'faqs' => []
+        ],
+        'socket' => [
+            'title' => 'IC Sockets, Headers & Breadboard Connectors',
+            'desc' => 'DIP IC sockets, female headers, male pin headers, and prototyping socket hardware for custom PCB assembly.',
+            'faqs' => []
+        ],
+        'connector' => [
+            'title' => 'Electronic Connectors, JST & Terminal Blocks',
+            'desc' => 'Shop JST connectors, screw terminal blocks, DC power jacks, and wire connectors for secure electronic connections.',
+            'faqs' => []
+        ],
+        'keypad' => [
+            'title' => 'Membrane Keypads & Matrix Switch Modules',
+            'desc' => '4x4 matrix keypads, 3x4 membrane switches, and tactile push button modules for microcontroller user input.',
+            'faqs' => []
+        ],
+        'switches' => [
+            'title' => 'Tactile Switches, Toggle Switches & Push Buttons',
+            'desc' => 'Micro switches, tactile push buttons, slide switches, and rocker power switches for electronic circuit designs.',
+            'faqs' => []
+        ],
+        'cables' => [
+            'title' => 'Jumper Wires, Ribbon Cables & USB Cables',
+            'desc' => 'Male-to-male, male-to-female, female-to-female jumper wires, breadboard cables, and programming cables.',
+            'faqs' => []
+        ],
+        'miscellaneous' => [
+            'title' => 'Miscellaneous Electronics & Prototyping Parts',
+            'desc' => 'Curated collection of essential maker components, passive parts, hardware accessories, and DIY electronics supplies.',
+            'faqs' => []
+        ],
+        'other' => [
+            'title' => 'Specialty Electronic Components & Hardware',
+            'desc' => 'Unique components and specialized hardware modules for custom electronics builds and educational labs at Tronix365.',
+            'faqs' => []
         ]
     ];
     
@@ -546,25 +638,78 @@ if (preg_match('/^product\/([a-zA-Z0-9_-]+)$/', $path, $matches)) {
             ];
             $extraHead .= "\n<script type=\"application/ld+json\">" . json_encode($faqSchema) . "</script>";
         }
+    } else {
+        // Dynamic fallback for any unlisted category to prevent duplicate homepage metadata
+        $catName = ucwords(str_replace('-', ' ', $catSlug));
+        $title = "$catName - Electronic Components & Modules | Tronix365";
+        $description = "Browse high-quality $catName components, electronic prototyping parts, and robotics hardware at Tronix365. Fast delivery across India.";
     }
+    
+    // Breadcrumbs Schema for Category Page
+    $catBreadcrumb = [
+        "@context" => "https://schema.org",
+        "@type" => "BreadcrumbList",
+        "itemListElement" => [
+            [
+                "@type" => "ListItem",
+                "position" => 1,
+                "name" => "Home",
+                "item" => "$baseUrl/"
+            ],
+            [
+                "@type" => "ListItem",
+                "position" => 2,
+                "name" => ucwords(str_replace('-', ' ', $catSlug)),
+                "item" => $url
+            ]
+        ]
+    ];
+    $extraHead .= "\n<script type=\"application/ld+json\">" . json_encode($catBreadcrumb) . "</script>";
 } else if ($path === 'shop') {
+    $url = "$baseUrl/shop";
     $title = "Shop Electronic Components Online | Tronix365";
-    $description = "Browse our catalog of microcontrollers, IoT boards, sensors, motors, and robotics parts. Filter by category, price, and search term.";
+    $description = "Browse our full catalog of microcontrollers, IoT boards, sensors, motors, and robotics parts. Filter by category, price, and search term.";
 } else if ($path === 'categories') {
+    $url = "$baseUrl/categories";
     $title = "Browse Components Categories | Tronix365";
     $description = "Find the perfect microcontrollers, development boards, sensors, and robotics parts for your project categorized for easy browsing.";
+} else if ($path === 'tower-orders') {
+    $url = "$baseUrl/tower-orders";
+    $title = "Tower Order & On-Demand Sourcing | Tronix365";
+    $description = "Place Tower Orders for high-volume, custom, or made-to-order industrial electronics. Directly connected with manufacturing plants.";
+} else if ($path === 'blogs') {
+    $url = "$baseUrl/blogs";
+    $title = "Engineering & Tech Blog | Hardware Tutorials & IoT Guides | Tronix365";
+    $description = "Deep dive electronics tutorials, Raspberry Pi & ESP32 guides, circuit schematics, pinouts, and hardware reviews written by engineers at Tronix365.";
+} else if (preg_match('/^blog\/([a-zA-Z0-9_-]+)$/', $path, $matches)) {
+    $blogSlug = $matches[1];
+    $url = "$baseUrl/blog/$blogSlug";
+    $readableBlog = ucwords(str_replace('-', ' ', $blogSlug));
+    $title = "$readableBlog | Engineering Guide | Tronix365";
+    $description = "Read our comprehensive engineering tutorial on $readableBlog with circuit diagrams and code implementation at Tronix365.";
 } else if ($path === 'about') {
+    $url = "$baseUrl/about";
     $title = "About Us | Tronix365";
     $description = "Learn about Tronix365, our mission, guaranteed quality, and expert technical support for electronics makers and hobbyists.";
 } else if ($path === 'contact') {
+    $url = "$baseUrl/contact";
     $title = "Contact Us | Tronix365";
     $description = "Get in touch with Tronix365 support for product questions, order help, and sales. Contact via email, phone, or live form.";
 } else if ($path === 'terms') {
+    $url = "$baseUrl/terms";
     $title = "Terms & Conditions | Tronix365";
     $description = "Read the terms and conditions for purchasing genuine electronic components and using the Tronix365 platform.";
 } else if ($path === 'privacy') {
+    $url = "$baseUrl/privacy";
     $title = "Privacy Policy | Tronix365";
     $description = "Review the privacy policy of Tronix365. We protect your personal data and ensure secure transactions.";
+} else if ($path === 'return-refund') {
+    $url = "$baseUrl/return-refund";
+    $title = "Return & Refund Policy | Tronix365";
+    $description = "Read the return and refund policy for genuine electronic components, development boards, and modules at Tronix365.";
+} else if (preg_match('/^(cart|checkout|dashboard|admin|login|signup|order|orders|invoice|payment)/', $path)) {
+    // Block private / checkout pages from search indexing
+    $extraHead .= "\n<meta name=\"robots\" content=\"noindex, nofollow\" />";
 }
 
 // 3. Load React build file index.html

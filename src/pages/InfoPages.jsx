@@ -6,9 +6,9 @@ import client from '../api/client';
 import SEO from '../components/common/SEO';
 import returnImage from '../assets/image.png';
 
-const PageLayout = ({ title, description, keywords, children }) => (
+const PageLayout = ({ title, description, keywords, url, children }) => (
     <div className="min-h-screen pt-24 pb-12 px-4 sm:px-6 lg:px-8">
-        <SEO title={title} description={description} keywords={keywords} />
+        <SEO title={title} description={description} keywords={keywords} url={url} />
         <div className="max-w-4xl mx-auto">
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -31,6 +31,7 @@ export const About = () => (
         title="About Us"
         description="Learn about Tronix365, our mission, guaranteed quality, and expert technical support for electronics makers and hobbyists."
         keywords="about Tronix365, electronics store, Arduino supplier, IoT components"
+        url="https://www.tronix365.in/e-commerse/about"
     >
         <p className="text-lg leading-relaxed mb-6">
             Welcome to <span className="text-tronix-primary font-bold">TRONIX365</span>, your premier destination for electronics components, development boards, and DIY kits. Founded in 2024, we are a team of passionate engineers and makers dedicated to empowering the innovator in everyone.
@@ -76,6 +77,7 @@ export const Contact = () => {
             title="Contact Us"
             description="Get in touch with Tronix365 support for product questions, order help, and sales. Contact via email, phone, or live form."
             keywords="contact Tronix365, support email, customer service, electronics help"
+            url="https://www.tronix365.in/e-commerse/contact"
         >
             <p className="text-lg mb-8">
                 Have a question about a product? Need help with an order? We'd love to hear from you.
@@ -154,6 +156,7 @@ export const Terms = () => (
         title="Terms & Conditions"
         description="Read the terms and conditions for purchasing genuine electronic components and using the Tronix365 platform."
         keywords="terms and conditions, user agreement, shopping policies"
+        url="https://www.tronix365.in/e-commerse/terms"
     >
         <p className="mb-4">Last Updated: January 2026</p>
         <h3 className="text-xl font-bold text-white mt-6 mb-2">1. Acceptance of Terms</h3>
@@ -172,6 +175,7 @@ export const Privacy = () => (
         title="Privacy Policy"
         description="Review the privacy policy of Tronix365. We protect your personal data and ensure secure transactions."
         keywords="privacy policy, data protection, secure shopping"
+        url="https://www.tronix365.in/e-commerse/privacy"
     >
         <p className="mb-4">Last Updated: January 2026</p>
         <p className="mb-6">Your privacy is important to us. It is TRONIX365's policy to respect your privacy regarding any information we may collect from you across our website.</p>
@@ -226,6 +230,7 @@ export const ReturnRefund = () => {
             title="Return, Refund & Cancellation Policy"
             description="Read the comprehensive return, refund, and cancellation policies for Tronix365 products and orders."
             keywords="return policy, refund policy, order cancellation, Tronix365 policies"
+            url="https://www.tronix365.in/e-commerse/return-refund"
         >
             <p className="text-gray-400 text-sm mb-8">Last Updated: January 2026</p>
             

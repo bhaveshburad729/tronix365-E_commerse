@@ -167,7 +167,7 @@ const Blogs = () => {
                 title="Engineering & Tech Blog | Hardware Tutorials, Pinouts & IoT Guides"
                 description="Deep dive electronics tutorials, Raspberry Pi & ESP32 guides, circuit schematics, pinouts, and hardware reviews written by engineers at Tronix365."
                 keywords="electronics tutorials, robotics, IoT guides, ESP32 pinout, raspberry pi, circuit diagrams, hardware engineering"
-                canonicalUrl={`${window.location.origin}/blogs`}
+                url="https://www.tronix365.in/e-commerse/blogs"
             />
 
             <div className="max-w-7xl mx-auto space-y-10">

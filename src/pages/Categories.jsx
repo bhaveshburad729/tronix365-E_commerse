@@ -9,6 +9,7 @@ const Categories = () => {
                 title="Browse Components Categories" 
                 description="Find the perfect microcontrollers, development boards, sensors, and robotics parts for your project categorized for easy browsing."
                 keywords="electronics categories, sensors, microcontrollers, motors, batteries"
+                url="https://www.tronix365.in/e-commerse/categories"
             />
             <div className="py-12 px-4 sm:px-6 lg:px-8 text-center bg-tronix-dark border-b border-white/5">
                 <h1 className="text-4xl md:text-5xl font-display font-bold text-white mb-4">
