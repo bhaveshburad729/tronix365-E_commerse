@@ -26,7 +26,11 @@ logger = get_logger("payment")
 router = APIRouter(tags=["Payments"])
 
 SUSPENDED_RENDER_HOST = "tronix365-e-commerse.onrender.com"
-ACTIVE_RENDER_HOST = "tronix365-e-commerse-xhlw.onrender.com"
+SUSPENDED_RENDER_HOSTS = (
+    "tronix365-e-commerse.onrender.com",
+    "tronix365-e-commerse-xhlw.onrender.com",
+)
+ACTIVE_RENDER_HOST = "tronix365-e-commerse-lk8l.onrender.com"
 
 
 def _resolve_backend_url(request: Request) -> str:
@@ -35,12 +39,12 @@ def _resolve_backend_url(request: Request) -> str:
     Safely bypasses any legacy or suspended Render host configuration.
     """
     env_backend = (os.getenv("BACKEND_URL") or "").strip().rstrip("/")
-    if env_backend and SUSPENDED_RENDER_HOST not in env_backend:
+    if env_backend and not any(sh in env_backend for sh in SUSPENDED_RENDER_HOSTS):
         return env_backend
 
     proto = request.headers.get("x-forwarded-proto", request.url.scheme or "https")
     host = request.headers.get("x-forwarded-host", request.headers.get("host", "")).strip()
-    if host and SUSPENDED_RENDER_HOST not in host:
+    if host and not any(sh in host for sh in SUSPENDED_RENDER_HOSTS):
         return f"{proto}://{host}".rstrip("/")
 
     return f"https://{ACTIVE_RENDER_HOST}"

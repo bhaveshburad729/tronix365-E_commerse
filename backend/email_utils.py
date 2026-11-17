@@ -187,13 +187,17 @@ def send_email_via_brevo(
 
 
 SUSPENDED_RENDER_HOST = "tronix365-e-commerse.onrender.com"
-ACTIVE_RENDER_HOST = "tronix365-e-commerse-xhlw.onrender.com"
+SUSPENDED_RENDER_HOSTS = (
+    "tronix365-e-commerse.onrender.com",
+    "tronix365-e-commerse-xhlw.onrender.com",
+)
+ACTIVE_RENDER_HOST = "tronix365-e-commerse-lk8l.onrender.com"
 
 
 def get_canonical_backend_url() -> str:
     """Returns the canonical backend URL, filtering out any suspended Render URL."""
     backend = os.getenv("BACKEND_URL", "http://localhost:8000").strip().rstrip("/")
-    if SUSPENDED_RENDER_HOST in backend:
+    if any(sh in backend for sh in SUSPENDED_RENDER_HOSTS):
         return f"https://{ACTIVE_RENDER_HOST}"
     return backend
 

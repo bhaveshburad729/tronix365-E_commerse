@@ -49,7 +49,7 @@ This guide describes the steps required to deploy the **Tronix365 E-commerce Pla
    | `SECRET_KEY` | A secure, random string for signing JWT tokens |
    | `CORS_ORIGINS` | `https://www.tronix365.in,https://tronix365.in` |
    | `FRONTEND_URL` | `https://www.tronix365.in/e-commerse` |
-   | `BACKEND_URL` | `https://tronix365-e-commerse-xhlw.onrender.com` (Ensure you use this active service URL, NOT the old suspended service) |
+   | `BACKEND_URL` | `https://tronix365-e-commerse-lk8l.onrender.com` (Ensure you use this active service URL, NOT the old suspended service) |
    | `GOOGLE_CLIENT_ID` | Google OAuth Client ID |
    | `GOOGLE_CLIENT_SECRET` | Google OAuth Client Secret |
    | `GEMINI_API_KEY` | Gemini API Key for chatbot integrations |
@@ -58,12 +58,12 @@ This guide describes the steps required to deploy the **Tronix365 E-commerce Pla
    * **Preventing Free-Tier Spin-Down & DB Cold Starts**: Render's free tier automatically spins down web services after 15 minutes of inactivity. When the backend spins down, incoming requests—including search engine crawlers (Googlebot) and live visitors—experience 30+ second cold-start delays or timeouts.
    * **Configure in [Cron-Job.org](https://cron-job.org) or [UptimeRobot](https://uptimerobot.com)**:
      - **Job 1: Backend & Database Keep-Alive (Ping every 10 minutes)**:
-       * **URL**: `https://tronix365-e-commerse-xhlw.onrender.com/cron/keep-alive` (or `/health`)
+       * **URL**: `https://tronix365-e-commerse-lk8l.onrender.com/cron/keep-alive` (or `/health`)
        * **HTTP Method**: `GET` or `HEAD` (both are supported with HTTP `200 OK`)
        * **Execution Schedule**: `*/10 * * * *` (Every 10 minutes)
        * **Purpose**: Pings both the FastAPI app and executes `SELECT 1` on the Neon PostgreSQL database to keep the connection pool warmed up and responsive.
      - **Job 2: Automated Abandoned Cart Recovery & Stale Bundle Sweep (Every 1–2 hours)**:
-       * **URL**: `https://tronix365-e-commerse-xhlw.onrender.com/cron/abandoned-carts?key=tronix365_cron_secret`
+       * **URL**: `https://tronix365-e-commerse-lk8l.onrender.com/cron/abandoned-carts?key=tronix365_cron_secret`
        * **HTTP Method**: `GET`
        * **Execution Schedule**: `0 * * * *` (Every 1 hour)
        * **Purpose**: Automatically self-heals expired or deleted promotional bundles in inactive carts and dispatches recovery emails to shoppers who left items in their cart without placing an order.

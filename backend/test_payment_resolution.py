@@ -24,9 +24,9 @@ def create_mock_request(headers_dict, scheme="https", host="localhost:8000"):
 print("=== RUNNING PAYMENT ROUTE RESOLUTION TESTS ===")
 
 # Test 1: Suspended URL in BACKEND_URL env var
-os.environ["BACKEND_URL"] = "https://tronix365-e-commerse.onrender.com"
+os.environ["BACKEND_URL"] = "https://tronix365-e-commerse-xhlw.onrender.com"
 os.environ["FRONTEND_URL"] = "https://www.tronix365.in/e-commerse"
-req1 = create_mock_request({"host": "tronix365-e-commerse-xhlw.onrender.com"})
+req1 = create_mock_request({"host": "tronix365-e-commerse.onrender.com"})
 
 backend_resolved = _resolve_backend_url(req1)
 frontend_resolved = _resolve_frontend_url(req1)
