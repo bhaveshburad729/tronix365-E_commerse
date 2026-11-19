@@ -23,6 +23,9 @@ const jsGenerateDescription = (title, category) => {
   return desc;
 };
 
+// Compute fallback expiry at module initialization
+const DEFAULT_PRICE_VALID_UNTIL = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
 const ProductSchema = ({
   name,
   description,
@@ -59,10 +62,10 @@ const ProductSchema = ({
     },
     'offers': {
       '@type': 'Offer',
-      'url': url || window.location.href,
+      'url': url || (typeof window !== 'undefined' ? window.location.href : ''),
       'priceCurrency': 'INR',
       'price': price,
-      'priceValidUntil': new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      'priceValidUntil': DEFAULT_PRICE_VALID_UNTIL,
       'itemCondition': 'https://schema.org/NewCondition',
       'availability': inStock
         ? 'https://schema.org/InStock'
@@ -137,7 +140,7 @@ const ProductSchema = ({
       'hasMerchantReturnPolicy': {
         '@type': 'MerchantReturnPolicy',
         'applicableCountry': 'IN',
-        'returnPolicyCategory': 'https://schema.org/MerchantReturnFiniteReturnPeriod',
+        'returnPolicyCategory': 'https://schema.org/MerchantReturnFiniteReturnWindow',
         'merchantReturnDays': 5,
         'returnMethod': 'https://schema.org/ReturnByMail',
         'returnFees': 'https://schema.org/ReturnShippingFees',

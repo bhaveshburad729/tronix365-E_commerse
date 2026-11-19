@@ -494,7 +494,7 @@ if (preg_match('/^product\/([a-zA-Z0-9_-]+)$/', $path, $matches)) {
                 "hasMerchantReturnPolicy" => [
                     "@type" => "MerchantReturnPolicy",
                     "applicableCountry" => "IN",
-                    "returnPolicyCategory" => "https://schema.org/MerchantReturnFiniteReturnPeriod",
+                    "returnPolicyCategory" => "https://schema.org/MerchantReturnFiniteReturnWindow",
                     "merchantReturnDays" => 5,
                     "returnMethod" => "https://schema.org/ReturnByMail",
                     "returnFees" => "https://schema.org/ReturnShippingFees"

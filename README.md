@@ -6,6 +6,9 @@ Tronix365 is a state-of-the-art, full-stack e-commerce web application engineere
 
 ## ✨ Features
 
+- **Google Merchant Structured Data & SEO Optimization**:
+  - Implements compliant Schema.org `Product`, `Offer`, `BreadcrumbList`, and `hasMerchantReturnPolicy` structured JSON-LD data across server-side PHP (`public/index.php`) and client-side React (`ProductSchema.jsx`).
+  - Corrects `returnPolicyCategory` enum to `https://schema.org/MerchantReturnFiniteReturnWindow` adhering to Google Search Console Merchant Listings specifications (resolving invalid enum error for `returnPolicyCategory`).
 - **Modern Bento UI**: Beautiful, responsive layout with glassmorphic cards and dynamic animations.
 - **1-to-N Multi-Image Product Gallery & Showcase (Amazon, Ajio, Myntra Style)**:
   - **Dynamic Multi-Image Storefront Gallery (`ProductImageGallery.jsx`)**:
