@@ -104,14 +104,14 @@ function fetchUrl($url, $timeout = 5.0) {
 // Initialize direct PostgreSQL connection using PDO (highly available, bypasses Render cold starts)
 $pdo = null;
 $dbUrl = getDatabaseUrl();
-if ($dbUrl) {
+if ($dbUrl && extension_loaded('pdo') && in_array('pgsql', PDO::getAvailableDrivers())) {
     $parsedUrl = parse_url($dbUrl);
     if ($parsedUrl) {
-        $host = $parsedUrl['host'];
+        $host = $parsedUrl['host'] ?? 'localhost';
         $port = $parsedUrl['port'] ?? 5432;
-        $dbname = ltrim($parsedUrl['path'], '/');
-        $user = $parsedUrl['user'];
-        $pass = $parsedUrl['pass'];
+        $dbname = ltrim($parsedUrl['path'] ?? '', '/');
+        $user = $parsedUrl['user'] ?? '';
+        $pass = $parsedUrl['pass'] ?? '';
         
         $sslmode = "require";
         if (isset($parsedUrl['query'])) {
@@ -126,9 +126,10 @@ if ($dbUrl) {
             $pdo = new PDO($dsn, $user, $pass, [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::TIMEOUT => 3
+                PDO::ATTR_TIMEOUT => 3
             ]);
-        } catch (PDOException $e) {
+        } catch (Throwable $e) {
+            $pdo = null;
             error_log("Database connection failed: " . $e->getMessage());
         }
     }
@@ -155,7 +156,7 @@ if ($path === 'sitemap.xml') {
         try {
             $stmt = $pdo->query("SELECT id, title, category, skv, image, price, stock FROM products");
             $products = $stmt->fetchAll();
-        } catch (PDOException $e) {
+        } catch (Throwable $e) {
             $products = null;
         }
     }
@@ -307,7 +308,7 @@ if (preg_match('/^product\/([a-zA-Z0-9_-]+)$/', $path, $matches)) {
                     }
                 }
             }
-        } catch (PDOException $e) {
+        } catch (Throwable $e) {
             $product = null;
         }
     }
@@ -385,7 +386,7 @@ if (preg_match('/^product\/([a-zA-Z0-9_-]+)$/', $path, $matches)) {
                 $stmt = $pdo->prepare("SELECT user_name, rating, comment FROM reviews WHERE product_id = :product_id");
                 $stmt->execute(['product_id' => $product['id']]);
                 $reviews = $stmt->fetchAll();
-            } catch (PDOException $e) {
+            } catch (Throwable $e) {
                 $reviews = [];
             }
         }
