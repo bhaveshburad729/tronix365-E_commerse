@@ -284,6 +284,17 @@ if (preg_match('/^product\/([a-zA-Z0-9_-]+)$/', $path, $matches)) {
     $slugOrId = $matches[1];
     $isId = ctype_digit($slugOrId);
     
+    // Known legacy Google-indexed product URL aliases -> 301 redirect to active canonical product slugs
+    $legacyAliases = [
+        'oled-display-module' => '096-inch-i2ciic-4-pin-oled-display-module-white',
+        'toy-motor' => 'dc3-6v-diy-toy-motor',
+    ];
+    if (isset($legacyAliases[$slugOrId])) {
+        header("HTTP/1.1 301 Moved Permanently");
+        header("Location: $baseUrl/product/" . $legacyAliases[$slugOrId]);
+        exit;
+    }
+    
     $product = null;
     
     // 1. Direct query database (highly available, bypasses Render sleep)
@@ -329,6 +340,25 @@ if (preg_match('/^product\/([a-zA-Z0-9_-]+)$/', $path, $matches)) {
                         if (isset($item['slug']) && strcasecmp($item['slug'], $slugOrId) === 0) {
                             $product = $item;
                             break;
+                        }
+                    }
+                }
+                // Fuzzy keyword search fallback for legacy URLs
+                if (!$product && !$isId) {
+                    $terms = array_filter(explode('-', $slugOrId), function($t) { return strlen($t) >= 3; });
+                    if (!empty($terms)) {
+                        foreach ($jsonData as $item) {
+                            $itemSlug = $item['slug'] ?? '';
+                            $matchedCount = 0;
+                            foreach ($terms as $t) {
+                                if (strpos($itemSlug, $t) !== false) {
+                                    $matchedCount++;
+                                }
+                            }
+                            if ($matchedCount === count($terms)) {
+                                $product = $item;
+                                break;
+                            }
                         }
                     }
                 }
