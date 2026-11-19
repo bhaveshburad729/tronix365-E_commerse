@@ -30,7 +30,7 @@ function getApiUrl() {
             }
         }
     }
-    return "http://localhost:8000";
+    return "https://tronix365-e-commerse-lk8l.onrender.com";
 }
 
 $apiUrl = getApiUrl();
@@ -59,7 +59,7 @@ function getDatabaseUrl() {
             }
         }
     }
-    return null;
+    return "postgresql://neondb_owner:npg_UJQ35NbKrBsp@ep-weathered-fog-azkkq7jz-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require";
 }
 
 // Normalize function for PHP title matching
@@ -366,8 +366,16 @@ if (preg_match('/^product\/([a-zA-Z0-9_-]+)$/', $path, $matches)) {
         if ($isPlaceholder) {
             $image = $baseUrl . "/Tronix3650final_circular.png";
         } else {
+            $rawImg = $product['image'];
+            // If image accidentally points to localhost/127.0.0.1, convert to public API URL
+            if (strpos($rawImg, 'localhost') !== false || strpos($rawImg, '127.0.0.1') !== false) {
+                $parsedImgPath = parse_url($rawImg, PHP_URL_PATH);
+                $rawImg = $parsedImgPath ? "$apiUrl/" . ltrim($parsedImgPath, '/') : "$baseUrl/Tronix3650final_circular.png";
+            }
             // Check if absolute URL or relative
-            $image = (strpos($product['image'], 'http') === 0) ? $product['image'] : "$apiUrl/" . ltrim($product['image'], '/');
+            $image = (strpos($rawImg, 'http') === 0) ? $rawImg : "$apiUrl/" . ltrim($rawImg, '/');
+            // Encode spaces to satisfy Schema.org URI validation
+            $image = str_replace(' ', '%20', $image);
         }
         
         // Fetch reviews from database to build schema
@@ -462,6 +470,8 @@ if (preg_match('/^product\/([a-zA-Z0-9_-]+)$/', $path, $matches)) {
                 "url" => $url,
                 "priceCurrency" => "INR",
                 "price" => $product['price'],
+                "priceValidUntil" => date('Y-m-d', strtotime('+1 year')),
+                "validFrom" => "2026-01-01",
                 "itemCondition" => "https://schema.org/NewCondition",
                 "availability" => $stockStatus,
                 "shippingDetails" => [
@@ -497,7 +507,12 @@ if (preg_match('/^product\/([a-zA-Z0-9_-]+)$/', $path, $matches)) {
                     "returnPolicyCategory" => "https://schema.org/MerchantReturnFiniteReturnWindow",
                     "merchantReturnDays" => 5,
                     "returnMethod" => "https://schema.org/ReturnByMail",
-                    "returnFees" => "https://schema.org/ReturnShippingFees"
+                    "returnFees" => "https://schema.org/ReturnShippingFees",
+                    "returnShippingFeesAmount" => [
+                        "@type" => "MonetaryAmount",
+                        "value" => 69,
+                        "currency" => "INR"
+                    ]
                 ]
             ],
             "aggregateRating" => $aggregateSchema,

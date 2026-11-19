@@ -66,6 +66,7 @@ const ProductSchema = ({
       'priceCurrency': 'INR',
       'price': price,
       'priceValidUntil': DEFAULT_PRICE_VALID_UNTIL,
+      'validFrom': '2026-01-01',
       'itemCondition': 'https://schema.org/NewCondition',
       'availability': inStock
         ? 'https://schema.org/InStock'
@@ -144,6 +145,11 @@ const ProductSchema = ({
         'merchantReturnDays': 5,
         'returnMethod': 'https://schema.org/ReturnByMail',
         'returnFees': 'https://schema.org/ReturnShippingFees',
+        'returnShippingFeesAmount': {
+          '@type': 'MonetaryAmount',
+          'value': 69,
+          'currency': 'INR',
+        },
       },
     },
     'additionalProperty': [
@@ -162,7 +168,15 @@ const ProductSchema = ({
 
   // Always include image (using fallback store logo if placeholder) to comply with Google Search rules
   const fallbackImage = 'https://www.tronix365.in/e-commerse/Tronix3650final_circular.png';
-  schema.image = isPlaceholderImage(image) ? fallbackImage : image;
+  let resolvedImage = isPlaceholderImage(image) ? fallbackImage : image;
+  if (typeof resolvedImage === 'string') {
+    if (resolvedImage.includes('localhost') || resolvedImage.includes('127.0.0.1')) {
+      resolvedImage = fallbackImage;
+    }
+    schema.image = resolvedImage.replace(/ /g, '%20');
+  } else {
+    schema.image = fallbackImage;
+  }
 
   // Add reviews & ratings to resolve GSC warnings
   if (reviewCount && reviewCount > 0) {
